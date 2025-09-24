@@ -44,29 +44,36 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import java.util.List;
 import com.qualcomm.robotcore.hardware.LED;
 
+// stuff for the odometry (imports taken from gpt)
+import com.qualcomm.robotcore.hardware.HardwareMap;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+
+
+
 
 /* Control Map
 
 Gamepad A:
-Right Stick X: move left/right 
-Right Stick Y: move forward/back 
-Left Stick X:  turn robot left/right 
+Right Stick X: move left/right
+Right Stick Y: move forward/back
+Left Stick X:  turn robot left/right
 Left Stick Y:
 Press Right/Left Stick in: Slow Down Robot
 
-Dpad L/R:      arm in/out 
+Dpad L/R:      arm in/out
 Dpad Up/Down:  lift up/down
 A button: Intake down
- B button:      intake up 
+ B button:      intake up
 X button:      swap joystick directions
 Y button:      outtake dispense
 L button:      ****Intake grab a block
 L trigger:     ***raise lift, dump, back to neutral, down
 R button:      ***Intake dump into bucket
 R trigger:
-Logo (Logitech Button): move to basket & dump, and move back to field and redeploy 
+Logo (Logitech Button): move to basket & dump, and move back to field and redeploy
 back button:
-start button:  Set IMU back to 0.  
+start button:  Set IMU back to 0.
 
 Gamepad 2:
 Right Stick X:
@@ -78,9 +85,9 @@ Dpad R: Move lift down a bit to lock specimen in
 Dpad Up: Specimen Hanging Height, move to bars
 Dpad Down: Wall Height.  move to specimen zone
 
-A button:  
+A button:
 B button:  sweep field
-X button:  move to basket & dump, and move back to field and redeploy 
+X button:  move to basket & dump, and move back to field and redeploy
 Y button:  dump bucket
 L button: Reverse the intake
 L trigger: Wall Height
@@ -101,7 +108,7 @@ start button:
 */
 
 
-@TeleOp(name="AS-first robot-1", group="Robot")
+@TeleOp(name="AS-first robot-3", group="Robot")
 //@Disabled
 
 public class PpBot extends LinearOpMode {
@@ -130,14 +137,14 @@ public class PpBot extends LinearOpMode {
     double counter25 = 0;
     double counter23 = 0;
     double counter26 = 0;
-    
+
     boolean swapDirections = false;
     boolean debounceDirection = false;
-    
+
     boolean specimenMode = false;
     boolean debounceSpecimen = false;
     IMU imu;
-    
+
 
     @Override
     public void runOpMode() {
@@ -157,25 +164,25 @@ public class PpBot extends LinearOpMode {
         double x = 0;
         double y = 0;
         double rx = 0;
-        
+
         imu = hardwareMap.get(IMU.class, "imu");
-    
+
         // Adjust the orientation parameters to match your robot
         IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
             RevHubOrientationOnRobot.LogoFacingDirection.UP,
             RevHubOrientationOnRobot.UsbFacingDirection.BACKWARD));
-            
+
         // Without this, the REV Hub's orientation is assumed to be logo up / USB forward
         imu.initialize(parameters);
 
-        
+
         Common.telemetry = telemetry;
         if (Common.initialPositionSet) {
             Common.configRobot(hardwareMap, false);
             telemetry.addLine("Taking position from previous run");
 
         } else {
-            Common.configRobot(hardwareMap, true); 
+            Common.configRobot(hardwareMap, true);
             Common.setInitialPosition(-31.5, -63.5, 0);  // Right edge of robot aligned with second tile seam from right
             telemetry.addLine("Setting position to -31.5, -63.5, 0");
         }
@@ -192,13 +199,16 @@ public class PpBot extends LinearOpMode {
         /*
         /* Run until the driver presses stop */
         while (opModeIsActive()){
+            Common.updatePinpoint();   // <-- Step 1, update Pinpoint
+            telemetry.update();        // push telemetry to DS screen
+
             /*telemetry.addData("rangeL", String.format("%.01f mm", Common.sensorDistanceL.getDistance(DistanceUnit.MM)));
             telemetry.addData("rangeR", String.format("%.01f mm", Common.sensorDistanceR.getDistance(DistanceUnit.MM)));
             */
             if (gamepad2.start){
                 Common.zeroBothMotors();
             }
-            
+
             // Swap Specimen/Sample mode direction when Logitech button pressed
             if (gamepad2.guide) {
                 if (!debounceSpecimen) {
@@ -213,7 +223,7 @@ public class PpBot extends LinearOpMode {
             } else {
                 debounceSpecimen = false;
             }
-            
+
             if (swapDirections){
                 telemetry.addLine("direction swapped.");
             } else {
@@ -225,7 +235,7 @@ public class PpBot extends LinearOpMode {
                 telemetry.addLine("Sample Mode.");
             }
 
-            
+
             if (Common.redAlliance) {
                 telemetry.addLine("Red Alliance");
             } else {
@@ -233,12 +243,12 @@ public class PpBot extends LinearOpMode {
             }
 
 
-            
+
             if (gamepad1.start) {
                 Common.setInitialPosition(16.5, -63.5, 0);  // Right edge of robot aligned with second tile seam from right
             }
 
-            
+
             // Swap Joystick direction when Logitech button pressed
             if (gamepad1.x) {
                 if (!debounceDirection) {
@@ -252,14 +262,16 @@ public class PpBot extends LinearOpMode {
             telemetry.update();
         }
     }
-    
+
     private void handleJoystick() {
     // Handle Joysticks
+
+
 
     double stickY = -gamepad1.right_stick_y;
     double stickX = gamepad1.right_stick_x;
     double stickR = gamepad1.left_stick_x;
-    
+
     // Reverse Sticks
 
     if (swapDirections) {
@@ -267,7 +279,7 @@ public class PpBot extends LinearOpMode {
         stickX = -stickX;
     }
     double minfactor = 0.15;
-    double powerfactor = 3;
+    double powerfactor = .20;
     // Expo control:
     if (!(stickX == 0)) {
         stickX = stickX * Math.pow(Math.abs(stickX), powerfactor-1)+ (stickX/Math.abs(stickX)*minfactor);
@@ -292,7 +304,7 @@ public class PpBot extends LinearOpMode {
     double backRightPower;
 
     if (headingfield){
-        
+
         double rotX = stickX * Math.cos(-botHeading) - stickY * Math.sin(-botHeading);
         double rotY = stickX * Math.sin(-botHeading) + stickY * Math.cos(-botHeading);
 
@@ -309,7 +321,7 @@ public class PpBot extends LinearOpMode {
     }
     else{
          frontLeftPower = (stickY + stickX + stickR);
-         backLeftPower = (stickY - stickX + stickR); 
+         backLeftPower = (stickY - stickX + stickR);
          frontRightPower = (stickY - stickX - stickR);
          backRightPower = (stickY + stickX - stickR);
 
@@ -317,8 +329,8 @@ public class PpBot extends LinearOpMode {
 
     // If going backward, do it slower
     //if (stickY<0) stickY /= 2;
-    
-    double maxPower = Math.max(Math.max(Math.abs(frontLeftPower), Math.abs(backLeftPower)), 
+
+    double maxPower = Math.max(Math.max(Math.abs(frontLeftPower), Math.abs(backLeftPower)),
     Math.max(Math.abs(frontRightPower), Math.abs(backRightPower)));
     if (maxPower>1.0) {
         frontLeftPower /= maxPower;
@@ -327,6 +339,7 @@ public class PpBot extends LinearOpMode {
         backRightPower/= maxPower;
     }
 
+    //these codes just set the power for everything
     ((DcMotorEx) Common.leftFrontDrive).setPower(frontLeftPower);
     ((DcMotorEx) Common.leftBackDrive).setPower(backLeftPower);
     ((DcMotorEx) Common.rightFrontDrive).setPower(frontRightPower);
