@@ -14,6 +14,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Position;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import android.util.Log;
 
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -394,10 +395,16 @@ class Common {
                 "{X: %.3f, Y: %.3f, H: %.3f, A: %d, V: %d, F: %d}",
                 ppPos.getX(DistanceUnit.INCH),
                 ppPos.getY(DistanceUnit.INCH),
+
                 normalizeAngleD(ppPos.getHeading(AngleUnit.DEGREES)-90),
                 ppPosAbsolute, ppPosThreshV, ppPosThreshS);
         telemetry.addData("Position", data);
 
+        Log.d("Pinpoint", String.format("{X: %.3f, Y: %.3f, H: %.3f}",
+                ppPos.getX(DistanceUnit.INCH),
+                ppPos.getY(DistanceUnit.INCH),
+                normalizeAngleD(ppPos.getHeading(AngleUnit.DEGREES)-90)
+        ));
         /*
         ppVel = odo.getVelocity();
         String velocity = String.format(Locale.US,

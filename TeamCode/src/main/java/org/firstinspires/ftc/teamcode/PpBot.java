@@ -227,20 +227,21 @@ public class PpBot extends LinearOpMode {
             if (swapDirections){
                 telemetry.addLine("direction swapped.");
             } else {
-                telemetry.addLine("normal direction.");
+                //telemetry.addLine("normal direction.");
             }
             if (specimenMode){
                 telemetry.addLine("Specimen Mode.");
             } else {
-                telemetry.addLine("Sample Mode.");
+                //telemetry.addLine("Sample Mode.");
             }
 
-
+            /*
             if (Common.redAlliance) {
                 telemetry.addLine("Red Alliance");
             } else {
                 telemetry.addLine("Blue Alliance");
             }
+             */
 
 
 
