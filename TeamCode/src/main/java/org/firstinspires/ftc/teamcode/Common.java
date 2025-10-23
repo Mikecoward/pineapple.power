@@ -127,7 +127,8 @@ class Common {
     static DistanceSensor sensorDistanceL;
     static DistanceSensor sensorDistanceR;
 
-
+    public static Servo AngleHood;
+    public static Servo Spinner;
 
     // Run motor slowly downwards until current gets too high, then decide that this must be the zero point.
     static void zeroBothMotors() {
@@ -185,6 +186,9 @@ class Common {
         ));
 
         odo.resetPosAndIMU();
+
+        AngleHood = hardwareMap.get(Servo.class, "hood");
+        Spinner = hardwareMap.get(Servo.class, "spinner");
         /*configurePinpoint(hardwareMap, recalibrateIMU);
 
         limelight = hardwareMap.get(Limelight3A.class, "limelight");

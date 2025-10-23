@@ -141,9 +141,12 @@ public class PpBot extends LinearOpMode {
     boolean swapDirections = false;
     boolean debounceDirection = false;
 
+    double curangle;
     boolean specimenMode = false;
     boolean debounceSpecimen = false;
     IMU imu;
+
+
 
 
     @Override
@@ -198,7 +201,16 @@ public class PpBot extends LinearOpMode {
         Common.zeroBothMotors();
         /*
         /* Run until the driver presses stop */
+        double curAngle = Common.Spinner.getPosition(); // current angle
+        boolean lastA = false; // tracks previous state of button
+        boolean lastB = false;
+        Common.Spinner.setPosition(0);
+
+        boolean hoodUp = false; // starts down
+        double moveAmount = 0.2;
+
         while (opModeIsActive()){
+
             Common.updatePinpoint();   // <-- Step 1, update Pinpoint
             telemetry.update();        // push telemetry to DS screen
 
@@ -209,6 +221,39 @@ public class PpBot extends LinearOpMode {
                 Common.zeroBothMotors();
             }
 
+            // Button pressed now, but wasn't pressed last loop
+            if (gamepad1.a && !lastA) {
+                curAngle += 120.0 % 180.0; // convert degrees to 0–1
+                if (curAngle > 360) curAngle -= 360; // wrap around
+                Common.Spinner.setPosition(curAngle);
+            }
+
+
+            if (gamepad1.b && !lastB) {
+                double pos = Common.AngleHood.getPosition();
+
+                if (!hoodUp) {
+                    pos += moveAmount;  // move up
+                    hoodUp = true;
+                } else {
+                    pos -= moveAmount;  // move down
+                    hoodUp = false;
+                }
+
+                // clamp to 0–1
+                if (pos > 1) pos = 1;
+                if (pos < 0) pos = 0;
+
+                Common.AngleHood.setPosition(pos);
+            }
+
+
+            lastA = gamepad1.a;
+            lastB = gamepad1.b;
+
+            lastA = gamepad1.a; // update button state
+            telemetry.addData("Servo Angle", curAngle);
+            telemetry.update();
             // Swap Specimen/Sample mode direction when Logitech button pressed
             if (gamepad2.guide) {
                 if (!debounceSpecimen) {
@@ -242,6 +287,19 @@ public class PpBot extends LinearOpMode {
                 telemetry.addLine("Blue Alliance");
             }
              */
+
+            if (gamepad1.a) {
+                telemetry.addLine("Pressed A");
+            }
+            if (gamepad1.b) {
+                telemetry.addLine("Pressed B");
+            }
+            if (gamepad1.x) {
+                telemetry.addLine("Pressed X");
+            }
+            if (gamepad1.y) {
+                telemetry.addLine("Pressed Y");
+            }
 
 
 
