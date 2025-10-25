@@ -59,19 +59,19 @@ Right Stick X: move left/right
 Right Stick Y: move forward/back
 Left Stick X:  turn robot left/right
 Left Stick Y:
-Press Right/Left Stick in: Slow Down Robot
+Press Right/Left Stick in:
 
-Dpad L/R:      arm in/out
-Dpad Up/Down:  lift up/down
-A button: Intake down
- B button:      intake up
-X button:      swap joystick directions
-Y button:      outtake dispense
-L button:      ****Intake grab a block
-L trigger:     ***raise lift, dump, back to neutral, down
-R button:      ***Intake dump into bucket
-R trigger:
-Logo (Logitech Button): move to basket & dump, and move back to field and redeploy
+Dpad L/R:
+Dpad Up/Down:
+A button: increases spinner angle by 60 degrees,
+ B button:   push once- hood moves up a little, push again, hood goes down
+X button:    while holding, shooter motor is set to max power
+Y button:
+L button:
+L trigger: fine adjust spinner angle
+R button:
+R trigger: other direction fine adjust spinenr angle
+Logo (Logitech Button):
 back button:
 start button:  Set IMU back to 0.
 
@@ -81,31 +81,25 @@ Right Stick Y:
 Left Stick X:
 Left Stick Y:
 Dpad L:
-Dpad R: Move lift down a bit to lock specimen in
-Dpad Up: Specimen Hanging Height, move to bars
-Dpad Down: Wall Height.  move to specimen zone
+Dpad R:
+Dpad Up:
+Dpad Down:
 
 A button:
-B button:  sweep field
-X button:  move to basket & dump, and move back to field and redeploy
-Y button:  dump bucket
-L button: Reverse the intake
-L trigger: Wall Height
-R button: Power to the intake
-R trigger: Specimen Hanging Height
-Logo (Logitech Button):  Specimen Mode or Sample Mode
+B button:
+X button:
+Y button:
+L button:
+L trigger:
+R button:
+R trigger:
+Logo (Logitech Button):
 back button:
 start button:
 
 */
 
-/* Needed controls:
--> Move lift all the way down
--> Take lift to hanging height
--> Drop lift to hang specimen
--> Specimen Mode (don't pick up yellow.  Don't auto drop in bucket)
--> Button to drop sample off the front for specimen mode
-*/
+
 
 
 @TeleOp(name="AS-first robot-3", group="Robot")
@@ -201,10 +195,10 @@ public class PpBot extends LinearOpMode {
         Common.zeroBothMotors();
         /*
         /* Run until the driver presses stop */
-        double curAngle = Common.Spinner.getPosition(); // current angle
         boolean lastA = false; // tracks previous state of button
         boolean lastB = false;
-        Common.Spinner.setPosition(0);
+        double curAngle = 27.2; // current angle
+        Common.Spinner.setPosition(curAngle/360);
 
         boolean hoodUp = false; // starts down
         double moveAmount = 0.2;
@@ -223,10 +217,14 @@ public class PpBot extends LinearOpMode {
 
             // Button pressed now, but wasn't pressed last loop
             if (gamepad1.a && !lastA) {
-                curAngle += 120.0 % 180.0; // convert degrees to 0–1
+                curAngle += 60.0;
                 if (curAngle > 360) curAngle -= 360; // wrap around
-                Common.Spinner.setPosition(curAngle);
+                Common.Spinner.setPosition(curAngle/360.0);
             }
+            curAngle += 0.3*gamepad1.left_trigger;
+            curAngle -= 0.3*gamepad1.right_trigger;
+            if (curAngle > 360) curAngle -= 360; // wrap around
+            Common.Spinner.setPosition(curAngle/360.0);
 
 
             if (gamepad1.b && !lastB) {
@@ -246,47 +244,25 @@ public class PpBot extends LinearOpMode {
 
                 Common.AngleHood.setPosition(pos);
             }
-
-
+            if (gamepad1.x){
+                Common.shooterMotor.setPower(1);
+            }
+            else {
+                Common.shooterMotor.setPower(0);
+            }
+            if (gamepad1.y){
+                Common.rightIntake.setPower(1);
+                Common.leftIntake.setPower(1);
+            }
+            else {
+                Common.rightIntake.setPower(0);
+                Common.leftIntake.setPower(0);
+            }
             lastA = gamepad1.a;
             lastB = gamepad1.b;
 
             lastA = gamepad1.a; // update button state
             telemetry.addData("Servo Angle", curAngle);
-            telemetry.update();
-            // Swap Specimen/Sample mode direction when Logitech button pressed
-            if (gamepad2.guide) {
-                if (!debounceSpecimen) {
-                    specimenMode = !specimenMode;
-                    debounceSpecimen = true;
-                    if (specimenMode) {
-                        Common.topLED_red.on();
-                    } else {
-                        Common.topLED_red.off();
-                    }
-                }
-            } else {
-                debounceSpecimen = false;
-            }
-
-            if (swapDirections){
-                telemetry.addLine("direction swapped.");
-            } else {
-                //telemetry.addLine("normal direction.");
-            }
-            if (specimenMode){
-                telemetry.addLine("Specimen Mode.");
-            } else {
-                //telemetry.addLine("Sample Mode.");
-            }
-
-            /*
-            if (Common.redAlliance) {
-                telemetry.addLine("Red Alliance");
-            } else {
-                telemetry.addLine("Blue Alliance");
-            }
-             */
 
             if (gamepad1.a) {
                 telemetry.addLine("Pressed A");
@@ -301,22 +277,10 @@ public class PpBot extends LinearOpMode {
                 telemetry.addLine("Pressed Y");
             }
 
-
-
             if (gamepad1.start) {
                 Common.setInitialPosition(16.5, -63.5, 0);  // Right edge of robot aligned with second tile seam from right
             }
 
-
-            // Swap Joystick direction when Logitech button pressed
-            if (gamepad1.x) {
-                if (!debounceDirection) {
-                    swapDirections = !swapDirections;
-                    debounceDirection = true;
-                }
-            } else {
-                debounceDirection = false;
-            }
             handleJoystick();
             telemetry.update();
         }

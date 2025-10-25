@@ -78,12 +78,20 @@ class Common {
     static DcMotor  rightFrontDrive  = null;
     static DcMotor  leftBackDrive    = null;
     static DcMotor  rightBackDrive   = null;
-    static DcMotor  liftMotor        = null;
-    static DcMotor  armExtMotor      = null;
+    static DcMotor  shooterMotor      = null;
+    static CRServo leftIntake = null;
+    static CRServo rightIntake = null;
+    static Servo kicker = null;
+    static Servo spinner = null;
+    static Servo hood = null;
+
+
 
     static Servo IntakeDeploy = null;
     static Servo bucketServo = null;
     static Servo sweeperServo = null;
+    static DcMotor  liftMotor        = null;
+    static DcMotor  armExtMotor      = null;
 
     static CRServo intakeServo1 = null;
     static CRServo intakeServo0 = null;
@@ -210,6 +218,10 @@ class Common {
         leftBackDrive   = hardwareMap.dcMotor.get("leftBack");
         rightFrontDrive = hardwareMap.dcMotor.get("rightFront");
         rightBackDrive  = hardwareMap.dcMotor.get("rightBack");
+        shooterMotor  = hardwareMap.dcMotor.get("shooterMotor");
+        leftIntake = hardwareMap.get(CRServo.class, "leftIntake");
+        rightIntake = hardwareMap.get(CRServo.class, "rightIntake");
+
         /*
         liftMotor       = hardwareMap.dcMotor.get("vertmotor");
         //armRotMotor     = hardwareMap.dcMotor.get("armrotmotor");
@@ -218,6 +230,8 @@ class Common {
        */
         leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
         leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
+        shooterMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        rightIntake.setDirection(CRServo.Direction.REVERSE);
         /*
          Setting zeroPowerBehavior to BRAKE enables a "brake mode". This causes the motor to slow down
         much faster when it is coasting. This creates a much more controllable drivetrain. As the robot
