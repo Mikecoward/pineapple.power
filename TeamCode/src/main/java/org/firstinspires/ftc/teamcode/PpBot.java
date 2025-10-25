@@ -66,11 +66,11 @@ Dpad Up/Down:
 A button: increases spinner angle by 60 degrees,
  B button:   push once- hood moves up a little, push again, hood goes down
 X button:    while holding, shooter motor is set to max power
-Y button:
-L button:
-L trigger: fine adjust spinner angle
+Y button: start spinning intake
+L button: make kicker go up/down
+L trigger:
 R button:
-R trigger: other direction fine adjust spinenr angle
+R trigger:
 Logo (Logitech Button):
 back button:
 start button:  Set IMU back to 0.
@@ -135,7 +135,6 @@ public class PpBot extends LinearOpMode {
     boolean swapDirections = false;
     boolean debounceDirection = false;
 
-    double curangle;
     boolean specimenMode = false;
     boolean debounceSpecimen = false;
     IMU imu;
@@ -166,8 +165,8 @@ public class PpBot extends LinearOpMode {
 
         // Adjust the orientation parameters to match your robot
         IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
-            RevHubOrientationOnRobot.LogoFacingDirection.UP,
-            RevHubOrientationOnRobot.UsbFacingDirection.BACKWARD));
+            RevHubOrientationOnRobot.LogoFacingDirection.BACKWARD,
+            RevHubOrientationOnRobot.UsbFacingDirection.LEFT));
 
         // Without this, the REV Hub's orientation is assumed to be logo up / USB forward
         imu.initialize(parameters);
@@ -197,11 +196,14 @@ public class PpBot extends LinearOpMode {
         /* Run until the driver presses stop */
         boolean lastA = false; // tracks previous state of button
         boolean lastB = false;
-        double curAngle = 27.2; // current angle
+        boolean leftbumperpressed = false;
+        double curAngle = 27; // current angle
         Common.Spinner.setPosition(curAngle/360);
 
         boolean hoodUp = false; // starts down
+        boolean kickerUp = false;
         double moveAmount = 0.2;
+        double moveAmountKick = 0.2;
 
         while (opModeIsActive()){
 
@@ -216,17 +218,16 @@ public class PpBot extends LinearOpMode {
             }
 
             // Button pressed now, but wasn't pressed last loop
-            if (gamepad1.a && !lastA) {
-                curAngle += 60.0;
-                if (curAngle > 360) curAngle -= 360; // wrap around
+            if (gamepad1.a && !lastA && !kickerUp) {
+                curAngle += 69.0;
+                if (curAngle > 360) curAngle = 27; // wrap around
                 Common.Spinner.setPosition(curAngle/360.0);
             }
+            /*
             curAngle += 0.3*gamepad1.left_trigger;
             curAngle -= 0.3*gamepad1.right_trigger;
-            if (curAngle > 360) curAngle -= 360; // wrap around
             Common.Spinner.setPosition(curAngle/360.0);
-
-
+            */
             if (gamepad1.b && !lastB) {
                 double pos = Common.AngleHood.getPosition();
 
@@ -244,6 +245,27 @@ public class PpBot extends LinearOpMode {
 
                 Common.AngleHood.setPosition(pos);
             }
+            if (gamepad1.left_bumper && !leftbumperpressed) {
+                double kickerPosition = Common.kicker.getPosition();
+                if(curAngle !=96  && curAngle != 234) {
+                    if (!kickerUp) {
+                        kickerPosition = .18;  // move up
+                        kickerUp = true;
+                    } else {
+                        kickerPosition = .655;  // move down
+                        kickerUp = false;
+                    }
+                }
+                // clamp to 0–1
+                if (kickerPosition > 1) kickerPosition = 1;
+                if (kickerPosition < 0) kickerPosition = 0;
+                leftbumperpressed = true;
+                Common.kicker.setPosition(kickerPosition);
+            }
+            if(!gamepad1.left_bumper){
+                leftbumperpressed = false;
+            }
+
             if (gamepad1.x){
                 Common.shooterMotor.setPower(1);
             }
@@ -260,7 +282,6 @@ public class PpBot extends LinearOpMode {
             }
             lastA = gamepad1.a;
             lastB = gamepad1.b;
-
             lastA = gamepad1.a; // update button state
             telemetry.addData("Servo Angle", curAngle);
 

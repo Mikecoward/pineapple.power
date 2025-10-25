@@ -81,9 +81,7 @@ class Common {
     static DcMotor  shooterMotor      = null;
     static CRServo leftIntake = null;
     static CRServo rightIntake = null;
-    static Servo kicker = null;
-    static Servo spinner = null;
-    static Servo hood = null;
+    public static Servo kicker = null;
 
 
 
@@ -197,6 +195,8 @@ class Common {
 
         AngleHood = hardwareMap.get(Servo.class, "hood");
         Spinner = hardwareMap.get(Servo.class, "spinner");
+        kicker = hardwareMap.get(Servo.class, "kicker");
+
         /*configurePinpoint(hardwareMap, recalibrateIMU);
 
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
