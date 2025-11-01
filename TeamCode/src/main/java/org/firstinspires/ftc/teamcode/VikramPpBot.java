@@ -62,7 +62,7 @@ start button:
 */
 
 
-@TeleOp(name="Vikram-variation", group="Robot")
+@TeleOp(name="VikraM-variation", group="Robot")
 //@Disabled
 
 public class VikramPpBot extends LinearOpMode {
