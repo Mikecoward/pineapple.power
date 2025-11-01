@@ -204,11 +204,10 @@ public class PpBot extends LinearOpMode {
         boolean kickerUp = false;
         double moveAmount = 0.2;
         double moveAmountKick = 0.2;
-
+        long lastKickTime = 0;
         while (opModeIsActive()){
 
             Common.updatePinpoint();   // <-- Step 1, update Pinpoint
-            telemetry.update();        // push telemetry to DS screen
 
             /*telemetry.addData("rangeL", String.format("%.01f mm", Common.sensorDistanceL.getDistance(DistanceUnit.MM)));
             telemetry.addData("rangeR", String.format("%.01f mm", Common.sensorDistanceR.getDistance(DistanceUnit.MM)));
@@ -246,31 +245,30 @@ public class PpBot extends LinearOpMode {
                 Common.AngleHood.setPosition(pos);
             }
             if (gamepad1.left_bumper && !leftbumperpressed) {
-                double kickerPosition = Common.kicker.getPosition();
-                if(curAngle !=96  && curAngle != 234) {
-                    if (!kickerUp) {
-                        kickerPosition = .18;  // move up
-                        kickerUp = true;
-                    } else {
-                        kickerPosition = .655;  // move down
-                        kickerUp = false;
-                    }
+                if (curAngle != 96 && curAngle != 234) {
+                    Common.kicker.setPosition(0.18);  // move up
+                    kickerUp = true;
+                    leftbumperpressed = true;
+                    lastKickTime = System.currentTimeMillis(); // record time
                 }
-                // clamp to 0–1
-                if (kickerPosition > 1) kickerPosition = 1;
-                if (kickerPosition < 0) kickerPosition = 0;
-                leftbumperpressed = true;
-                Common.kicker.setPosition(kickerPosition);
             }
+
+            if (kickerUp && System.currentTimeMillis() - lastKickTime > 500) { // after 0.5s
+                Common.kicker.setPosition(0.655); // move down
+                kickerUp = false;
+            }
+
             if(!gamepad1.left_bumper){
                 leftbumperpressed = false;
             }
 
             if (gamepad1.x){
-                Common.shooterMotor.setPower(1);
+                ((DcMotorEx) Common.shooterMotor).setVelocity(6000/60.0 * 28.0);
+
             }
             else {
-                Common.shooterMotor.setPower(0);
+                ((DcMotorEx)Common.shooterMotor).setVelocity(0.0);
+
             }
             if (gamepad1.y){
                 Common.rightIntake.setPower(1);
@@ -284,7 +282,7 @@ public class PpBot extends LinearOpMode {
             lastB = gamepad1.b;
             lastA = gamepad1.a; // update button state
             telemetry.addData("Servo Angle", curAngle);
-
+            telemetry.addData("motor speed", ((DcMotorEx) Common.shooterMotor).getVelocity());
             if (gamepad1.a) {
                 telemetry.addLine("Pressed A");
             }

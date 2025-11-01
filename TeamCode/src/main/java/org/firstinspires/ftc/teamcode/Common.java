@@ -197,8 +197,8 @@ class Common {
         Spinner = hardwareMap.get(Servo.class, "spinner");
         kicker = hardwareMap.get(Servo.class, "kicker");
 
-        /*configurePinpoint(hardwareMap, recalibrateIMU);
-
+        configurePinpoint(hardwareMap, recalibrateIMU);
+        /*
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         telemetry.setMsTransmissionInterval(11);
         limelight.pipelineSwitch(0);
@@ -219,6 +219,11 @@ class Common {
         rightFrontDrive = hardwareMap.dcMotor.get("rightFront");
         rightBackDrive  = hardwareMap.dcMotor.get("rightBack");
         shooterMotor  = hardwareMap.dcMotor.get("shooterMotor");
+
+        shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
         leftIntake = hardwareMap.get(CRServo.class, "leftIntake");
         rightIntake = hardwareMap.get(CRServo.class, "rightIntake");
 
@@ -352,12 +357,12 @@ class Common {
     }
 
     static void configurePinpoint(HardwareMap hardwareMap, boolean recalibrateIMU) {
-        /* // Initialize the hardware variables. Note that the strings used here must correspond
+        // Initialize the hardware variables. Note that the strings used here must correspond
         // to the names assigned during the robot configuration step on the DS or RC devices.
 
-        odo = hardwareMap.get(GoBildaPinpointDriver.class,"pinpoint");
+        //odo = hardwareMap.get(GoBildaPinpointDriver.class,"pinpoint");
 
-*/
+
         /*
         Set the odometry pod positions relative to the point that the odometry computer tracks around.
         The X pod offset refers to how far sideways from the tracking point the
@@ -366,7 +371,7 @@ class Common {
         the tracking point the Y (strafe) odometry pod is. forward of center is a positive number,
         backwards is a negative number.
          */
-        //odo.setOffsets(-85.0, 126.0);
+        odo.setOffsets(-98.0, 150.0, DistanceUnit.MM);
 
         /*
         Set the kind of pods used by your robot. If you're using goBILDA odometry pods, select either
@@ -374,13 +379,13 @@ class Common {
         If you're using another kind of odometry pod, uncomment setEncoderResolution and input the
         number of ticks per mm of your odometry pod.
          */
-       // odo.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
+        odo.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
         /*
         Set the direction that each of the two odometry pods count. The X (forward) pod should
         increase when you move the robot forward. And the Y (strafe) pod should increase when
         you move the robot to the left.
          */
-        //odo.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.REVERSED);
+        odo.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.REVERSED);
 
 
         /*
@@ -391,14 +396,14 @@ class Common {
         This is recommended before you run your autonomous, as a bad initial calibration can cause
         an incorrect starting value for x, y, and heading.
          */
-        /*
+
         if (recalibrateIMU) {
             odo.recalibrateIMU();
             sleep(500);
             odo.resetPosAndIMU();
             sleep(500);
         }
-        */
+
     }
 
     static boolean isMt2Valid() {
