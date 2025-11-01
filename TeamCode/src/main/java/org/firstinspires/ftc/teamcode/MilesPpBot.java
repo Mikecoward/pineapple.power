@@ -105,7 +105,7 @@ start button:
 @TeleOp(name="Miles-1", group="Robot")
 //@Disabled
 
-public class PpBot extends LinearOpMode {
+public class MilesPpBot extends LinearOpMode {
     double counter = 0;
     boolean isydone = false;
     boolean isnewydone = false;
