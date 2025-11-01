@@ -323,7 +323,7 @@ public class PpBot extends LinearOpMode {
         stickX = -stickX;
     }
     double minfactor = 0.15;
-    double powerfactor = .20;
+    double powerfactor = 1.20;
     // Expo control:
     if (!(stickX == 0)) {
         stickX = stickX * Math.pow(Math.abs(stickX), powerfactor-1)+ (stickX/Math.abs(stickX)*minfactor);
