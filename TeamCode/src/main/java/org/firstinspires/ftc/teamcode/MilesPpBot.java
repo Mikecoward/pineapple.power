@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
+import static org.firstinspires.ftc.teamcode.Common.limelight;
+
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import com.qualcomm.robotcore.hardware.Gamepad;
@@ -102,6 +104,18 @@ start button:
 
 
 
+import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.LLResultTypes;
+import com.qualcomm.hardware.limelightvision.LLStatus;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+
+import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
+
+import java.util.List;
+
 @TeleOp(name="Miles-1", group="Robot")
 //@Disabled
 
@@ -186,6 +200,16 @@ public class MilesPpBot extends LinearOpMode {
 
         telemetry.addLine("Robot Ready.");
         telemetry.update();
+        limelight = hardwareMap.get(Limelight3A.class, "limelight");
+
+        telemetry.setMsTransmissionInterval(11);
+
+        limelight.pipelineSwitch(0);
+
+        /*
+         * Starts polling for data.  If you neglect to call start(), getLatestResult() will return null.
+         */
+        limelight.start();
 
         /* Wait for the game driver to press play */
         waitForStart();
@@ -203,88 +227,127 @@ public class MilesPpBot extends LinearOpMode {
         boolean hoodUp = false; // starts down
         double moveAmount = 0.2;
 
+        // In MilesPpBot.java
+
+// ... inside runOpMode() ...
+
+        // Add these constants before your while loop for easy tuning
+        final double TURN_SPEED = 0.25; // Slower speed for alignment
+        final double TX_DEADBAND = 2.0; // Target is "aligned" if tx is within +/- 1.0 degrees
+
         while (opModeIsActive()){
+            // --- Always get the latest Limelight data at the start of the loop ---
+            LLStatus status = limelight.getStatus();
+            LLResult result = limelight.getLatestResult();
 
-            Common.updatePinpoint();   // <-- Step 1, update Pinpoint
-            telemetry.update();        // push telemetry to DS screen
+            // --- Your Position and other data gathering ---
+            Common.updatePinpoint();
 
-            /*telemetry.addData("rangeL", String.format("%.01f mm", Common.sensorDistanceL.getDistance(DistanceUnit.MM)));
-            telemetry.addData("rangeR", String.format("%.01f mm", Common.sensorDistanceR.getDistance(DistanceUnit.MM)));
-            */
+            // =================================================================
+            //  SECTION 1: AUTO-ALIGN OR DRIVER CONTROL
+            // =================================================================
+
+            // If the X button is held, try to align to the AprilTag
+            if (gamepad1.x) {
+                telemetry.addLine("AUTO-ALIGNING...");
+                double tx = 0.0;
+                boolean targetVisible = false;
+
+                if (result.isValid() && !result.getFiducialResults().isEmpty()) {
+                    // Get 'tx' from the first detected fiducial tag
+                    tx = result.getFiducialResults().get(0).getTargetXDegrees();
+                    targetVisible = true;
+                    telemetry.addData("Aligning with tx", "%.2f", tx);
+                } else {
+                    telemetry.addLine("Align Failed: No target visible");
+                }
+
+                double turnPower = 0.0;
+                // If a target is visible AND we are outside the deadband...
+                if (targetVisible && Math.abs(tx) > TX_DEADBAND) {
+                    // If tx is positive, the target is to the right, so turn right.
+                    if (tx > 0) {
+                        turnPower = TURN_SPEED; // Turn right
+                    }
+                    // If tx is negative, the target is to the left, so turn left.
+                    else {
+                        turnPower = -TURN_SPEED;  // Turn left
+                    }
+                }
+
+                // Apply power to the motors to turn in place
+                // No forward/strafe movement, only rotation
+                ((DcMotorEx) Common.leftFrontDrive).setPower(turnPower);
+                ((DcMotorEx) Common.leftBackDrive).setPower(turnPower);
+                ((DcMotorEx) Common.rightFrontDrive).setPower(-turnPower);
+                ((DcMotorEx) Common.rightBackDrive).setPower(-turnPower);
+
+            } else {
+                // If X is not held, run normal driver controls
+                telemetry.addLine("Manual Control");
+                handleJoystick();
+            }
+
+            // =================================================================
+            //  SECTION 2: OTHER ROBOT CONTROLS
+            // =================================================================
+
             if (gamepad2.start){
                 Common.zeroBothMotors();
             }
 
-            // Button pressed now, but wasn't pressed last loop
+            // Spinner control
             if (gamepad1.a && !lastA) {
                 curAngle += 60.0;
-                if (curAngle > 360) curAngle -= 360; // wrap around
+                if (curAngle > 360) curAngle -= 360;
                 Common.Spinner.setPosition(curAngle/360.0);
             }
             curAngle += 0.3*gamepad1.left_trigger;
             curAngle -= 0.3*gamepad1.right_trigger;
-            if (curAngle > 360) curAngle -= 360; // wrap around
+            if (curAngle > 360) curAngle -= 360;
             Common.Spinner.setPosition(curAngle/360.0);
 
-
+            // Hood control
             if (gamepad1.b && !lastB) {
                 double pos = Common.AngleHood.getPosition();
-
                 if (!hoodUp) {
-                    pos += moveAmount;  // move up
+                    pos += moveAmount;
                     hoodUp = true;
                 } else {
-                    pos -= moveAmount;  // move down
+                    pos -= moveAmount;
                     hoodUp = false;
                 }
-
-                // clamp to 0–1
-                if (pos > 1) pos = 1;
-                if (pos < 0) pos = 0;
-
+                pos = Math.max(0, Math.min(1, pos)); // Cleaner clamp
                 Common.AngleHood.setPosition(pos);
             }
-            if (gamepad1.x){
-                Common.shooterMotor.setPower(1);
-            }
-            else {
-                Common.shooterMotor.setPower(0);
-            }
-            if (gamepad1.y){
-                Common.rightIntake.setPower(1);
-                Common.leftIntake.setPower(1);
-            }
-            else {
+
+            // Shooter motor is now on Y button
+            Common.shooterMotor.setPower(gamepad1.y ? 1 : 0);
+
+            // Intake logic can be moved to another button if Y is taken
+            // For now, let's assume intake is not needed while shooting
+            if (!gamepad1.y) {
                 Common.rightIntake.setPower(0);
                 Common.leftIntake.setPower(0);
             }
+
+
+            // Update button states
             lastA = gamepad1.a;
             lastB = gamepad1.b;
 
-            lastA = gamepad1.a; // update button state
-            telemetry.addData("Servo Angle", curAngle);
-
-            if (gamepad1.a) {
-                telemetry.addLine("Pressed A");
-            }
-            if (gamepad1.b) {
-                telemetry.addLine("Pressed B");
-            }
-            if (gamepad1.x) {
-                telemetry.addLine("Pressed X");
-            }
-            if (gamepad1.y) {
-                telemetry.addLine("Pressed Y");
-            }
-
             if (gamepad1.start) {
-                Common.setInitialPosition(16.5, -63.5, 0);  // Right edge of robot aligned with second tile seam from right
+                Common.setInitialPosition(16.5, -63.5, 0);
             }
 
-            handleJoystick();
+            // =================================================================
+            //  SECTION 3: UPDATE TELEMETRY
+            // =================================================================
             telemetry.update();
         }
+        limelight.stop();
     }
+
 
     private void handleJoystick() {
     // Handle Joysticks
