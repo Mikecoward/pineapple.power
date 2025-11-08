@@ -255,8 +255,11 @@ public class PpBot extends LinearOpMode {
 
             if (kickerUp && System.currentTimeMillis() - lastKickTime > 500) { // after 0.5s
                 Common.kicker.setPosition(0.655); // move down
+            }
+            if (kickerUp && System.currentTimeMillis() - lastKickTime > 750) { // after 0.5s
                 kickerUp = false;
             }
+
 
             if(!gamepad1.left_bumper){
                 leftbumperpressed = false;
