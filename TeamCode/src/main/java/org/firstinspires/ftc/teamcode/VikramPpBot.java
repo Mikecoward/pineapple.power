@@ -1,53 +1,15 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
-import org.firstinspires.ftc.robotcore.external.Telemetry;
-import com.qualcomm.robotcore.hardware.Gamepad;
-import com.qualcomm.robotcore.hardware.HardwareMap;
-import org.firstinspires.ftc.robotcore.external.navigation.Position;
-import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
-import com.qualcomm.robotcore.hardware.TouchSensor;
-import com.qualcomm.hardware.limelightvision.Limelight3A;
-import com.qualcomm.hardware.limelightvision.LLStatus;
-import java.util.ArrayList;
-import com.qualcomm.robotcore.robot.RobotState;
-import com.qualcomm.hardware.limelightvision.LLResult;
-import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
-import com.qualcomm.robotcore.hardware.ServoControllerEx;
-import com.qualcomm.robotcore.hardware.ServoController;
-import java.util.Locale;
-import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
-import com.qualcomm.hardware.rev.Rev2mDistanceSensor;
-import com.qualcomm.robotcore.hardware.Servo;
-import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import com.qualcomm.robotcore.hardware.IMU;
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.CRServo;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.DistanceSensor;
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-//import org.firstinspires.ftc.teamcode2.ColorSensorV31;
-//import org.firstinspires.ftc.teamcode2.GoBildaPinpointDriver;
+import com.qualcomm.robotcore.hardware.IMU;
 
-import java.lang.Math;
-import com.qualcomm.hardware.limelightvision.LLResultTypes;
-import com.qualcomm.hardware.limelightvision.LLStatus;
-import com.qualcomm.hardware.limelightvision.Limelight3A;
-import java.util.List;
-import com.qualcomm.robotcore.hardware.LED;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
 // stuff for the odometry (imports taken from gpt)
-import com.qualcomm.robotcore.hardware.HardwareMap;
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+
 
 
 
@@ -100,12 +62,10 @@ start button:
 */
 
 
-
-
-@TeleOp(name="AS-first robot-3", group="Robot")
+@TeleOp(name="VikraM-variation", group="Robot")
 //@Disabled
 
-public class PpBot extends LinearOpMode {
+public class VikramPpBot extends LinearOpMode {
     double counter = 0;
     boolean isydone = false;
     boolean isnewydone = false;
@@ -204,10 +164,11 @@ public class PpBot extends LinearOpMode {
         boolean kickerUp = false;
         double moveAmount = 0.2;
         double moveAmountKick = 0.2;
-        long lastKickTime = 0;
+
         while (opModeIsActive()){
 
             Common.updatePinpoint();   // <-- Step 1, update Pinpoint
+            telemetry.update();        // push telemetry to DS screen
 
             /*telemetry.addData("rangeL", String.format("%.01f mm", Common.sensorDistanceL.getDistance(DistanceUnit.MM)));
             telemetry.addData("rangeR", String.format("%.01f mm", Common.sensorDistanceR.getDistance(DistanceUnit.MM)));
@@ -245,30 +206,31 @@ public class PpBot extends LinearOpMode {
                 Common.AngleHood.setPosition(pos);
             }
             if (gamepad1.left_bumper && !leftbumperpressed) {
-                if (curAngle != 96 && curAngle != 234) {
-                    Common.kicker.setPosition(0.18);  // move up
-                    kickerUp = true;
-                    leftbumperpressed = true;
-                    lastKickTime = System.currentTimeMillis(); // record time
+                double kickerPosition = Common.kicker.getPosition();
+                if(curAngle !=96  && curAngle != 234) {
+                    if (!kickerUp) {
+                        kickerPosition = .18;  // move up
+                        kickerUp = true;
+                    } else {
+                        kickerPosition = .655;  // move down
+                        kickerUp = false;
+                    }
                 }
+                // clamp to 0–1
+                if (kickerPosition > 1) kickerPosition = 1;
+                if (kickerPosition < 0) kickerPosition = 0;
+                leftbumperpressed = true;
+                Common.kicker.setPosition(kickerPosition);
             }
-
-            if (kickerUp && System.currentTimeMillis() - lastKickTime > 500) { // after 0.5s
-                Common.kicker.setPosition(0.655); // move down
-                kickerUp = false;
-            }
-
             if(!gamepad1.left_bumper){
                 leftbumperpressed = false;
             }
 
             if (gamepad1.x){
-                ((DcMotorEx) Common.shooterMotor).setVelocity(6000/60.0 * 28.0);
-
+                Common.shooterMotor.setPower(1);
             }
             else {
-                ((DcMotorEx)Common.shooterMotor).setVelocity(0.0);
-
+                Common.shooterMotor.setPower(0);
             }
             if (gamepad1.y){
                 Common.rightIntake.setPower(1);
@@ -282,7 +244,7 @@ public class PpBot extends LinearOpMode {
             lastB = gamepad1.b;
             lastA = gamepad1.a; // update button state
             telemetry.addData("Servo Angle", curAngle);
-            telemetry.addData("motor speed", ((DcMotorEx) Common.shooterMotor).getVelocity());
+
             if (gamepad1.a) {
                 telemetry.addLine("Pressed A");
             }
@@ -320,8 +282,8 @@ public class PpBot extends LinearOpMode {
         stickY = -stickY;
         stickX = -stickX;
     }
-    double minfactor = 0.05;
-    double powerfactor = 1.200;
+    double minfactor = 0.15;
+    double powerfactor = .20;
     // Expo control:
     if (!(stickX == 0)) {
         stickX = stickX * Math.pow(Math.abs(stickX), powerfactor-1)+ (stickX/Math.abs(stickX)*minfactor);
