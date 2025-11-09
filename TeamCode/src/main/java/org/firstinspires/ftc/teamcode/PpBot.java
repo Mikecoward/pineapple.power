@@ -165,8 +165,8 @@ public class PpBot extends LinearOpMode {
 
         // Adjust the orientation parameters to match your robot
         IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
-            RevHubOrientationOnRobot.LogoFacingDirection.BACKWARD,
-            RevHubOrientationOnRobot.UsbFacingDirection.LEFT));
+                RevHubOrientationOnRobot.LogoFacingDirection.BACKWARD,
+                RevHubOrientationOnRobot.UsbFacingDirection.LEFT));
 
         // Without this, the REV Hub's orientation is assumed to be logo up / USB forward
         imu.initialize(parameters);
@@ -205,6 +205,9 @@ public class PpBot extends LinearOpMode {
         double moveAmount = 0.2;
         double moveAmountKick = 0.2;
         long lastKickTime = 0;
+
+        Pose2D pos = Common.ppPos;
+
         while (opModeIsActive()){
 
             Common.updatePinpoint();   // <-- Step 1, update Pinpoint
@@ -227,6 +230,7 @@ public class PpBot extends LinearOpMode {
             curAngle -= 0.3*gamepad1.right_trigger;
             Common.Spinner.setPosition(curAngle/360.0);
             */
+            /*
             if (gamepad1.b && !lastB) {
                 double pos = Common.AngleHood.getPosition();
 
@@ -244,6 +248,7 @@ public class PpBot extends LinearOpMode {
 
                 Common.AngleHood.setPosition(pos);
             }
+            */
             if (gamepad1.left_bumper && !leftbumperpressed) {
                 if (curAngle != 96 && curAngle != 234) {
                     Common.kicker.setPosition(0.18);  // move up
@@ -309,86 +314,86 @@ public class PpBot extends LinearOpMode {
     }
 
     private void handleJoystick() {
-    // Handle Joysticks
+        // Handle Joysticks
 
 
 
-    double stickY = -gamepad1.right_stick_y;
-    double stickX = gamepad1.right_stick_x;
-    double stickR = gamepad1.left_stick_x;
+        double stickY = -gamepad1.right_stick_y;
+        double stickX = gamepad1.right_stick_x;
+        double stickR = gamepad1.left_stick_x;
 
-    // Reverse Sticks
+        // Reverse Sticks
 
-    if (swapDirections) {
-        stickY = -stickY;
-        stickX = -stickX;
+        if (swapDirections) {
+            stickY = -stickY;
+            stickX = -stickX;
+        }
+        double minfactor = 0.05;
+        double powerfactor = 1.200;
+        // Expo control:
+        if (!(stickX == 0)) {
+            stickX = stickX * Math.pow(Math.abs(stickX), powerfactor-1)+ (stickX/Math.abs(stickX)*minfactor);
+        }
+        if (!(stickY == 0)) {
+            stickY = stickY * Math.pow(Math.abs(stickY), powerfactor-1)+ (stickY/Math.abs(stickY)*minfactor);
+        }
+        if (!(stickR == 0)) {
+            stickR = stickR * Math.pow(Math.abs(stickR), powerfactor-1)+ (stickR/Math.abs(stickR)*minfactor);
+        }
+        stickX = stickX * 1.1; // Counteract imperfect strafing
+
+        // Denominator is the largest motor power (absolute value) or 1
+        // This ensures all the powers maintain the same ratio,
+        // but only if at least one is out of the range [-1, 1]
+        double botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+
+        boolean headingfield = true;
+        double frontLeftPower;
+        double backLeftPower;
+        double frontRightPower;
+        double backRightPower;
+
+        if (headingfield){
+
+            double rotX = stickX * Math.cos(-botHeading) - stickY * Math.sin(-botHeading);
+            double rotY = stickX * Math.sin(-botHeading) + stickY * Math.cos(-botHeading);
+
+            rotX = rotX * 1.1;  // Counteract imperfect strafing
+
+            // Denominator is the largest motor power (absolute value) or 1
+            // This ensures all the powers maintain the same ratio,
+            // but only if at least one is out of the range [-1, 1]
+            frontLeftPower = (rotY + rotX + stickR);
+            backLeftPower = (rotY - rotX + stickR);
+            frontRightPower = (rotY - rotX - stickR);
+            backRightPower = (rotY + rotX - stickR);
+
+        }
+        else{
+            frontLeftPower = (stickY + stickX + stickR);
+            backLeftPower = (stickY - stickX + stickR);
+            frontRightPower = (stickY - stickX - stickR);
+            backRightPower = (stickY + stickX - stickR);
+
+        }
+
+        // If going backward, do it slower
+        //if (stickY<0) stickY /= 2;
+
+        double maxPower = Math.max(Math.max(Math.abs(frontLeftPower), Math.abs(backLeftPower)),
+                Math.max(Math.abs(frontRightPower), Math.abs(backRightPower)));
+        if (maxPower>1.0) {
+            frontLeftPower /= maxPower;
+            backLeftPower /= maxPower;
+            frontRightPower/= maxPower;
+            backRightPower/= maxPower;
+        }
+
+        //these codes just set the power for everything
+        ((DcMotorEx) Common.leftFrontDrive).setPower(frontLeftPower);
+        ((DcMotorEx) Common.leftBackDrive).setPower(backLeftPower);
+        ((DcMotorEx) Common.rightFrontDrive).setPower(frontRightPower);
+        ((DcMotorEx) Common.rightBackDrive).setPower(backRightPower);
     }
-    double minfactor = 0.05;
-    double powerfactor = 1.200;
-    // Expo control:
-    if (!(stickX == 0)) {
-        stickX = stickX * Math.pow(Math.abs(stickX), powerfactor-1)+ (stickX/Math.abs(stickX)*minfactor);
-    }
-    if (!(stickY == 0)) {
-        stickY = stickY * Math.pow(Math.abs(stickY), powerfactor-1)+ (stickY/Math.abs(stickY)*minfactor);
-    }
-    if (!(stickR == 0)) {
-        stickR = stickR * Math.pow(Math.abs(stickR), powerfactor-1)+ (stickR/Math.abs(stickR)*minfactor);
-    }
-    stickX = stickX * 1.1; // Counteract imperfect strafing
-
-    // Denominator is the largest motor power (absolute value) or 1
-    // This ensures all the powers maintain the same ratio,
-    // but only if at least one is out of the range [-1, 1]
-    double botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
-
-    boolean headingfield = true;
-    double frontLeftPower;
-    double backLeftPower;
-    double frontRightPower;
-    double backRightPower;
-
-    if (headingfield){
-
-        double rotX = stickX * Math.cos(-botHeading) - stickY * Math.sin(-botHeading);
-        double rotY = stickX * Math.sin(-botHeading) + stickY * Math.cos(-botHeading);
-
-       rotX = rotX * 1.1;  // Counteract imperfect strafing
-
-       // Denominator is the largest motor power (absolute value) or 1
-       // This ensures all the powers maintain the same ratio,
-       // but only if at least one is out of the range [-1, 1]
-        frontLeftPower = (rotY + rotX + stickR);
-        backLeftPower = (rotY - rotX + stickR);
-        frontRightPower = (rotY - rotX - stickR);
-        backRightPower = (rotY + rotX - stickR);
-
-    }
-    else{
-         frontLeftPower = (stickY + stickX + stickR);
-         backLeftPower = (stickY - stickX + stickR);
-         frontRightPower = (stickY - stickX - stickR);
-         backRightPower = (stickY + stickX - stickR);
-
-    }
-
-    // If going backward, do it slower
-    //if (stickY<0) stickY /= 2;
-
-    double maxPower = Math.max(Math.max(Math.abs(frontLeftPower), Math.abs(backLeftPower)),
-    Math.max(Math.abs(frontRightPower), Math.abs(backRightPower)));
-    if (maxPower>1.0) {
-        frontLeftPower /= maxPower;
-        backLeftPower /= maxPower;
-        frontRightPower/= maxPower;
-        backRightPower/= maxPower;
-    }
-
-    //these codes just set the power for everything
-    ((DcMotorEx) Common.leftFrontDrive).setPower(frontLeftPower);
-    ((DcMotorEx) Common.leftBackDrive).setPower(backLeftPower);
-    ((DcMotorEx) Common.rightFrontDrive).setPower(frontRightPower);
-    ((DcMotorEx) Common.rightBackDrive).setPower(backRightPower);
-}
 
 }

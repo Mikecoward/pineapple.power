@@ -133,7 +133,7 @@ class Common {
     static DistanceSensor sensorDistanceL;
     static DistanceSensor sensorDistanceR;
 
-    public static Servo AngleHood;
+    public static CRServo AngleHood;
     public static Servo Spinner;
 
     // Run motor slowly downwards until current gets too high, then decide that this must be the zero point.
@@ -193,7 +193,7 @@ class Common {
 
         odo.resetPosAndIMU();
 
-        AngleHood = hardwareMap.get(Servo.class, "hood");
+        AngleHood = hardwareMap.get(CRServo.class, "hood");
         Spinner = hardwareMap.get(Servo.class, "spinner");
         kicker = hardwareMap.get(Servo.class, "kicker");
 
@@ -223,6 +223,7 @@ class Common {
         shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
 
         leftIntake = hardwareMap.get(CRServo.class, "leftIntake");
         rightIntake = hardwareMap.get(CRServo.class, "rightIntake");
