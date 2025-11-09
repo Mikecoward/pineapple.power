@@ -114,7 +114,7 @@ class Common {
 
     static GoBildaPinpointDriver odo;
     static Pose2D ppPos, ppVel, targetPos;
-    static int ppPosAbsolute = 0;  // Number of updates.  0 is relative, 1+ is absolute
+    static int ppPosAbsolute = 0;  // 1Number of updates.  0 is relative, 1+ is absolute
     static int ppPosThreshV = 0;    // Velocity blocked
     static int ppPosThreshS = 0;    // Fiducial size blocked
 

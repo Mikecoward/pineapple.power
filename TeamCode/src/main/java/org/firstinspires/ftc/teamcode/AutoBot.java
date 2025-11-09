@@ -9,7 +9,7 @@ import static org.firstinspires.ftc.teamcode.pedroPathing.Tuning.drawOnlyCurrent
 import com.pedropathing.paths.PathChain;
 import org.firstinspires.ftc.teamcode.pedroPathing.PathFactory;
 
-@Autonomous(name = "AS-autobot", group = "Concept")
+@Autonomous(name = "AS-autobot1", group = "Concept")
 public class AutoBot extends LinearOpMode {
 
     @Override
