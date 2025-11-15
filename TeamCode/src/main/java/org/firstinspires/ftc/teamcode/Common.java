@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.hardware.Gamepad;
@@ -134,6 +135,8 @@ class Common {
     static DistanceSensor sensorDistanceR;
 
     public static CRServo AngleHood;
+    public static AnalogInput hoodEncoder;
+
     public static Servo Spinner;
 
     // Run motor slowly downwards until current gets too high, then decide that this must be the zero point.
@@ -194,6 +197,8 @@ class Common {
         odo.resetPosAndIMU();
 
         AngleHood = hardwareMap.get(CRServo.class, "hood");
+        hoodEncoder = hardwareMap.get(AnalogInput.class, "hoodencoder");
+
         Spinner = hardwareMap.get(Servo.class, "spinner");
         kicker = hardwareMap.get(Servo.class, "kicker");
 

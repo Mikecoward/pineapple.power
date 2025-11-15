@@ -195,18 +195,32 @@ public class PpBot extends LinearOpMode {
         /*
         /* Run until the driver presses stop */
         boolean lastA = false; // tracks previous state of button
-        boolean lastB = false;
         boolean leftbumperpressed = false;
         double curAngle = 27; // current angle
         Common.Spinner.setPosition(curAngle/360);
 
-        boolean hoodUp = false; // starts down
+        //boolean hoodUp = false; // starts down
         boolean kickerUp = false;
-        double moveAmount = 0.2;
+        //double moveAmount = 0.2;
         double moveAmountKick = 0.2;
         long lastKickTime = 0;
-
+        boolean shoot = false;
+        double pos1 = 0;
         Pose2D pos = Common.ppPos;
+
+        boolean buttonPressedLastLoop = false;
+        double moveTime = 1000; // milliseconds to spin per press
+        double powerAmount = 1;  // full power
+        // At top of OpMode
+        boolean lastB = false;
+        boolean hoodUp = false;
+        double targetAngle = 0;       // accumulated target
+        
+        double moveAmount = 12 * 360;      // degrees per press (2 rotations)
+        double tolerance = 5;         // degrees to stop within
+        double currentCumulativeAngle = 0; // cumulative hood angle
+        double lastVoltage = 0;       // last voltage reading
+        double voltageToDegrees = 360; // 1 full rotation per 5V (adjust for your encoder)
 
         while (opModeIsActive()){
 
@@ -219,36 +233,36 @@ public class PpBot extends LinearOpMode {
                 Common.zeroBothMotors();
             }
 
-            // Button pressed now, but wasn't pressed last loop
-            if (gamepad1.a && !lastA && !kickerUp) {
-                curAngle += 69.0;
-                if (curAngle > 360) curAngle = 27; // wrap around
-                Common.Spinner.setPosition(curAngle/360.0);
-            }
-            /*
-            curAngle += 0.3*gamepad1.left_trigger;
-            curAngle -= 0.3*gamepad1.right_trigger;
-            Common.Spinner.setPosition(curAngle/360.0);
-            */
-            /*
             if (gamepad1.b && !lastB) {
-                double pos = Common.AngleHood.getPosition();
-
                 if (!hoodUp) {
-                    pos += moveAmount;  // move up
+                    targetAngle += moveAmount; // move "up" 2 rotations
                     hoodUp = true;
                 } else {
-                    pos -= moveAmount;  // move down
+                    targetAngle -= moveAmount; // move "down" 2 rotations
                     hoodUp = false;
                 }
-
-                // clamp to 0–1
-                if (pos > 1) pos = 1;
-                if (pos < 0) pos = 0;
-
-                Common.AngleHood.setPosition(pos);
             }
-            */
+            lastB = gamepad1.b;
+
+// Read current hood angle from encoder
+            double currentAngle = Common.hoodEncoder.getVoltage() * 72; // scale voltage to degrees
+
+// Move CRServo toward target
+            double error = targetAngle - currentAngle;
+            if (Math.abs(error) > tolerance) {
+                Common.AngleHood.setPower(Math.signum(error)); // full power toward target
+            } else {
+                Common.AngleHood.setPower(0); // stop when close enough
+            }
+
+// Telemetry
+            telemetry.addData("Current Angle", currentAngle);
+            telemetry.addData("Target Angle", targetAngle);
+            telemetry.addData("Direction Up?", hoodUp);
+
+
+
+
             if (gamepad1.left_bumper && !leftbumperpressed) {
                 if (curAngle != 96 && curAngle != 234) {
                     Common.kicker.setPosition(0.18);  // move up
@@ -279,8 +293,10 @@ public class PpBot extends LinearOpMode {
 
             }
             if (gamepad1.y){
-                Common.rightIntake.setPower(1);
-                Common.leftIntake.setPower(1);
+                if (shoot) {
+                    Common.rightIntake.setPower(1);
+                    Common.leftIntake.setPower(1);
+                }
             }
             else {
                 Common.rightIntake.setPower(0);
