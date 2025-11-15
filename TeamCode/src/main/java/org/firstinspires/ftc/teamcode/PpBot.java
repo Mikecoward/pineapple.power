@@ -226,7 +226,7 @@ public class PpBot extends LinearOpMode {
 
             Common.updatePinpoint();   // <-- Step 1, update Pinpoint
 
-            /*telemetry.addData("rangeL", String.format("%.01f mm", Common.sensorDistanceL.getDistance(DistanceUnit.MM)));
+            /*1telemetry.addData("rangeL", String.format("%.01f mm", Common.sensorDistanceL.getDistance(DistanceUnit.MM)));
             telemetry.addData("rangeR", String.format("%.01f mm", Common.sensorDistanceR.getDistance(DistanceUnit.MM)));
             */
             if (gamepad2.start){

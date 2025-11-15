@@ -203,7 +203,7 @@ class Common {
         kicker = hardwareMap.get(Servo.class, "kicker");
 
         configurePinpoint(hardwareMap, recalibrateIMU);
-        /*
+        /*1
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         telemetry.setMsTransmissionInterval(11);
         limelight.pipelineSwitch(0);
