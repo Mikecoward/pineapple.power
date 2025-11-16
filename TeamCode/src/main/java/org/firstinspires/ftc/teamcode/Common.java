@@ -79,7 +79,7 @@ class Common {
     static DcMotor  rightFrontDrive  = null;
     static DcMotor  leftBackDrive    = null;
     static DcMotor  rightBackDrive   = null;
-    static DcMotor  shooterMotor      = null;
+    static DcMotor  shooterMotor     = null;
     static CRServo leftIntake = null;
     static CRServo rightIntake = null;
     public static Servo kicker = null;

@@ -196,7 +196,7 @@ public class PpBot extends LinearOpMode {
         /* Run until the driver presses stop */
         boolean lastA = false; // tracks previous state of button
         boolean leftbumperpressed = false;
-        double curAngle = 27; // current angle
+        double curAngle = 0; // current angle
         Common.Spinner.setPosition(curAngle/360);
 
         //boolean hoodUp = false; // starts down
@@ -219,13 +219,24 @@ public class PpBot extends LinearOpMode {
         double moveAmount = 12 * 360;      // degrees per press (2 rotations)
         double tolerance = 5;         // degrees to stop within
         double currentCumulativeAngle = 0; // cumulative hood angle
-        double lastVoltage = 0;       // last voltage reading
+        //double lastVoltage = 0;       // last voltage reading
         double voltageToDegrees = 360; // 1 full rotation per 5V (adjust for your encoder)
 
         while (opModeIsActive()){
 
             Common.updatePinpoint();   // <-- Step 1, update Pinpoint
-
+            // Button pressed now, but wasn't pressed last loop
+            if (gamepad1.a && !lastA && !kickerUp) {
+                curAngle += 10.0;
+                if (curAngle > 360) curAngle = 0; // wrap around
+                Common.Spinner.setPosition(curAngle/360.0);
+                shoot = !shoot;
+            }
+            /*
+            curAngle += 0.3*gamepad1.left_trigger;
+            curAngle -= 0.3*gamepad1.right_trigger;
+            Common.Spinner.setPosition(curAngle/360.0);
+            */
             /*1telemetry.addData("rangeL", String.format("%.01f mm", Common.sensorDistanceL.getDistance(DistanceUnit.MM)));
             telemetry.addData("rangeR", String.format("%.01f mm", Common.sensorDistanceR.getDistance(DistanceUnit.MM)));
             */
@@ -244,10 +255,20 @@ public class PpBot extends LinearOpMode {
             }
             lastB = gamepad1.b;
 
-// Read current hood angle from encoder
             double currentAngle = Common.hoodEncoder.getVoltage() * 72; // scale voltage to degrees
+            double lastVoltage = 0;
+            double cumulativeAngle = 0;
 
-// Move CRServo toward target
+            double rawVoltage = Common.hoodEncoder.getVoltage();
+            double delta = rawVoltage - lastVoltage;
+
+            // unwrap crossing 0/5V
+            if (delta > +2.5) delta -= 5.0;
+            if (delta < -2.5) delta += 5.0;
+
+            cumulativeAngle += delta * 72; // 72 deg per volt
+            lastVoltage = rawVoltage;
+
             double error = targetAngle - currentAngle;
             if (Math.abs(error) > tolerance) {
                 Common.AngleHood.setPower(Math.signum(error)); // full power toward target
