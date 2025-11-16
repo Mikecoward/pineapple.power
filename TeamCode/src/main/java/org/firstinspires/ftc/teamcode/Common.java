@@ -1,8 +1,10 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.AnalogInput;
+import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.Gamepad;
 import java.lang.reflect.Method;
 import com.qualcomm.robotcore.hardware.HardwareMap;
@@ -92,6 +94,8 @@ class Common {
     static DcMotor  liftMotor        = null;
     static DcMotor  armExtMotor      = null;
 
+    static ColorSensor colorsense = null;
+
     static CRServo intakeServo1 = null;
     static CRServo intakeServo0 = null;
 
@@ -137,8 +141,10 @@ class Common {
     public static CRServo AngleHood;
     public static AnalogInput hoodEncoder;
 
-    public static Servo Spinner;
+    public static CRServo Spinner;
+    public static AnalogInput spinEncoder;
 
+    public static CRServo Intake;
     // Run motor slowly downwards until current gets too high, then decide that this must be the zero point.
     static void zeroBothMotors() {
         bucketServo.setPosition(BUCKET_DOWN);
@@ -199,9 +205,13 @@ class Common {
         AngleHood = hardwareMap.get(CRServo.class, "hood");
         hoodEncoder = hardwareMap.get(AnalogInput.class, "hoodencoder");
 
-        Spinner = hardwareMap.get(Servo.class, "spinner");
+        Spinner = hardwareMap.get(CRServo.class, "spinner");
+        spinEncoder = hardwareMap.get(AnalogInput.class, "spinEncoder");
+
         kicker = hardwareMap.get(Servo.class, "kicker");
 
+        colorsense = hardwareMap.get(ColorSensor.class, "colorsense" );
+        //Intake = hardwareMap.get(CRServo.class, "intaketop");
         configurePinpoint(hardwareMap, recalibrateIMU);
         /*1
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
@@ -223,6 +233,7 @@ class Common {
         leftBackDrive   = hardwareMap.dcMotor.get("leftBack");
         rightFrontDrive = hardwareMap.dcMotor.get("rightFront");
         rightBackDrive  = hardwareMap.dcMotor.get("rightBack");
+
         shooterMotor  = hardwareMap.dcMotor.get("shooterMotor");
 
         shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -241,7 +252,7 @@ class Common {
        */
         leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
         leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
-        shooterMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        //shooterMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         rightIntake.setDirection(CRServo.Direction.REVERSE);
         /*
          Setting zeroPowerBehavior to BRAKE enables a "brake mode". This causes the motor to slow down

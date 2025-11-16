@@ -183,6 +183,7 @@ public class PpBot extends LinearOpMode {
             telemetry.addLine("Setting position to -31.5, -63.5, 0");
         }
 
+
         telemetry.addLine("Robot Ready.");
         telemetry.update();
 
@@ -196,8 +197,8 @@ public class PpBot extends LinearOpMode {
         /* Run until the driver presses stop */
         boolean lastA = false; // tracks previous state of button
         boolean leftbumperpressed = false;
-        double curAngle = 0; // current angle
-        Common.Spinner.setPosition(curAngle/360);
+        double curAngle = 62; // current angle
+        //Common.Spinner.setPosition(curAngle/360);
 
         //boolean hoodUp = false; // starts down
         boolean kickerUp = false;
@@ -222,16 +223,46 @@ public class PpBot extends LinearOpMode {
         //double lastVoltage = 0;       // last voltage reading
         double voltageToDegrees = 360; // 1 full rotation per 5V (adjust for your encoder)
 
+        int redValue = Common.colorsense.red();
+        int greenValue = Common.colorsense.green();
+        int blueValue = Common.colorsense.blue();
+
+        String[] ballposition = {"na", "na", "na"};
+        int curballselected = 0;
+        int incrementamount = 69;
+        double kP = 0.01;
+
+
         while (opModeIsActive()){
 
             Common.updatePinpoint();   // <-- Step 1, update Pinpoint
             // Button pressed now, but wasn't pressed last loop
             if (gamepad1.a && !lastA && !kickerUp) {
-                curAngle += 10.0;
-                if (curAngle > 360) curAngle = 0; // wrap around
-                Common.Spinner.setPosition(curAngle/360.0);
-                shoot = !shoot;
+                curAngle += incrementamount;
+                if (curAngle >= 360) curAngle -= 360;
             }
+
+            // --- READ CURRENT ANGLE ---
+            double currentAngle1 = (Common.spinEncoder.getVoltage() / 3.3) * 360.0;
+
+            // --- ERROR (shortest path) ---
+            double error1 = curAngle - currentAngle1;
+            if (error1 > 180) error1 -= 360;
+            if (error1 < -180) error1 += 360;
+
+            // --- POWER CONTROL ---
+            double power = kP * error1;
+            if (power > 1) power = 1;
+            if (power < -1) power = -1;
+
+            Common.Spinner.setPower(power);
+            telemetry.addData("spin encoder", (Common.spinEncoder.getVoltage() / 3.3) * 360.0);
+            lastA = gamepad1.a;
+
+
+
+
+
             /*
             curAngle += 0.3*gamepad1.left_trigger;
             curAngle -= 0.3*gamepad1.right_trigger;
@@ -243,6 +274,9 @@ public class PpBot extends LinearOpMode {
             if (gamepad2.start){
                 Common.zeroBothMotors();
             }
+            telemetry.addData("red value", redValue);
+            telemetry.addData("blue value", blueValue);
+            telemetry.addData("green value", greenValue);
 
             if (gamepad1.b && !lastB) {
                 if (!hoodUp) {
@@ -253,6 +287,8 @@ public class PpBot extends LinearOpMode {
                     hoodUp = false;
                 }
             }
+
+
             lastB = gamepad1.b;
 
             double currentAngle = Common.hoodEncoder.getVoltage() * 72; // scale voltage to degrees
@@ -305,6 +341,7 @@ public class PpBot extends LinearOpMode {
                 leftbumperpressed = false;
             }
 
+
             if (gamepad1.x){
                 ((DcMotorEx) Common.shooterMotor).setVelocity(6000/60.0 * 28.0);
 
@@ -313,7 +350,35 @@ public class PpBot extends LinearOpMode {
                 ((DcMotorEx)Common.shooterMotor).setVelocity(0.0);
 
             }
+
+
             if (gamepad1.y){
+                if (!shoot) {
+                    curAngle += incrementamount;
+                    shoot = !shoot;
+                }
+
+                for (int i = 0; i < 3; i++) {
+                    if (ballposition[curballselected].equals("na")) {
+                        ballposition[i] = "ball";  // replace "na" with whatever you want
+                               // store index of updated ball
+                        /*
+                        while red value green value blue value is the same as always:
+                            Common.rightIntake.setPower(1);
+                            Common.leftIntake.setPower(1);
+                            abovemotor power 1
+                         once it's doen;
+                         ballposition = ball and then break
+                         */
+
+                        break;                     // stop after first update
+                    }
+
+                    else {
+                        curAngle += incrementamount * 2;
+                        curballselected += (curballselected + 1)%3;
+                    }
+                }
                 if (shoot) {
                     Common.rightIntake.setPower(1);
                     Common.leftIntake.setPower(1);
