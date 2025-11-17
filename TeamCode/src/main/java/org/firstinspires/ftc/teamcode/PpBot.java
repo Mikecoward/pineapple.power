@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.robotcore.hardware.AnalogInput;
+
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import com.qualcomm.robotcore.hardware.Gamepad;
@@ -38,12 +40,12 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 //import org.firstinspires.ftc.teamcode2.GoBildaPinpointDriver;
 
 import java.lang.Math;
+
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.LLStatus;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import java.util.List;
 import com.qualcomm.robotcore.hardware.LED;
-
 // stuff for the odometry (imports taken from gpt)
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -147,6 +149,9 @@ public class PpBot extends LinearOpMode {
         /*
         1These variables are private to the OpMode, and are used to control the drivetrain.
          */
+        CRServo spinner = hardwareMap.get(CRServo.class, "Spinner");
+        AnalogInput spinEncoder = hardwareMap.get(AnalogInput.class, "spinEncoder");
+
 
         char colorf = 'n';
         char colorb = 'n';
@@ -216,47 +221,37 @@ public class PpBot extends LinearOpMode {
         boolean lastB = false;
         boolean hoodUp = false;
         double targetAngle = 0;       // accumulated target
-        
+
         double moveAmount = 12 * 360;      // degrees per press (2 rotations)
         double tolerance = 5;         // degrees to stop within
         double currentCumulativeAngle = 0; // cumulative hood angle
         //double lastVoltage = 0;       // last voltage reading
         double voltageToDegrees = 360; // 1 full rotation per 5V (adjust for your encoder)
 
-        int redValue = Common.colorsense.red();
-        int greenValue = Common.colorsense.green();
-        int blueValue = Common.colorsense.blue();
+        //int redValue = Common.colorsense.red();
+        //int greenValue = Common.colorsense.green();
+        //int blueValue = Common.colorsense.blue();
 
         String[] ballposition = {"na", "na", "na"};
         int curballselected = 0;
-        int incrementamount = 69;
+        int incrementamount =48;
         double kP = 0.01;
 
 
         while (opModeIsActive()){
 
             Common.updatePinpoint();   // <-- Step 1, update Pinpoint
+            int redValue = Common.colorsense.red();
+            int greenValue = Common.colorsense.green();
+            int blueValue = Common.colorsense.blue();
+
             // Button pressed now, but wasn't pressed last loop
             if (gamepad1.a && !lastA && !kickerUp) {
                 curAngle += incrementamount;
                 if (curAngle >= 360) curAngle -= 360;
             }
 
-            // --- READ CURRENT ANGLE ---
-            double currentAngle1 = (Common.spinEncoder.getVoltage() / 3.3) * 360.0;
 
-            // --- ERROR (shortest path) ---
-            double error1 = curAngle - currentAngle1;
-            if (error1 > 180) error1 -= 360;
-            if (error1 < -180) error1 += 360;
-
-            // --- POWER CONTROL ---
-            double power = kP * error1;
-            if (power > 1) power = 1;
-            if (power < -1) power = -1;
-
-            Common.Spinner.setPower(power);
-            telemetry.addData("spin encoder", (Common.spinEncoder.getVoltage() / 3.3) * 360.0);
             lastA = gamepad1.a;
 
 
@@ -343,7 +338,7 @@ public class PpBot extends LinearOpMode {
 
 
             if (gamepad1.x){
-                ((DcMotorEx) Common.shooterMotor).setVelocity(6000/60.0 * 28.0);
+                ((DcMotorEx) Common.shooterMotor).setVelocity(-6000/60.0 * 28.0);
 
             }
             else {
@@ -352,42 +347,21 @@ public class PpBot extends LinearOpMode {
             }
 
 
-            if (gamepad1.y){
-                if (!shoot) {
-                    curAngle += incrementamount;
-                    shoot = !shoot;
-                }
-
-                for (int i = 0; i < 3; i++) {
-                    if (ballposition[curballselected].equals("na")) {
-                        ballposition[i] = "ball";  // replace "na" with whatever you want
-                               // store index of updated ball
-                        /*
-                        while red value green value blue value is the same as always:
-                            Common.rightIntake.setPower(1);
-                            Common.leftIntake.setPower(1);
-                            abovemotor power 1
-                         once it's doen;
-                         ballposition = ball and then break
-                         */
-
-                        break;                     // stop after first update
-                    }
-
-                    else {
-                        curAngle += incrementamount * 2;
-                        curballselected += (curballselected + 1)%3;
-                    }
-                }
-                if (shoot) {
-                    Common.rightIntake.setPower(1);
-                    Common.leftIntake.setPower(1);
-                }
-            }
-            else {
+            //=========================================================
+            // INDEPENDENT INTAKE CONTROL (Gamepad Y)
+            //=========================================================
+            if (gamepad1.y) {
+                // When Y is pressed, turn the intake motors on.
+                Common.rightIntake.setPower(1);
+                Common.leftIntake.setPower(1);
+            } else {
+                // When Y is NOT pressed, turn the intake motors off.
                 Common.rightIntake.setPower(0);
                 Common.leftIntake.setPower(0);
             }
+
+
+
             lastA = gamepad1.a;
             lastB = gamepad1.b;
             lastA = gamepad1.a; // update button state
