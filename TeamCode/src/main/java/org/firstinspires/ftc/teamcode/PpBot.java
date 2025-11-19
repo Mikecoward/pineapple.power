@@ -237,15 +237,19 @@ public class PpBot extends LinearOpMode {
         int incrementamount =48;
         double kP = 0.01;
 
-        colorsense.calibrate(this);
-
 
         while (opModeIsActive()){
 
             Common.updatePinpoint();   // <-- Step 1, update Pinpoint
+
+
             redValue = Common.colorsense.red();
             greenValue = Common.colorsense.green();
             blueValue = Common.colorsense.blue();
+
+            telemetry.addData("red value", redValue);
+            telemetry.addData("blue value", blueValue);
+            telemetry.addData("green value", greenValue);
 
             // Button pressed now, but wasn't pressed last loop
             if (gamepad1.a && !lastA && !kickerUp) {
@@ -268,12 +272,7 @@ public class PpBot extends LinearOpMode {
             /*1telemetry.addData("rangeL", String.format("%.01f mm", Common.sensorDistanceL.getDistance(DistanceUnit.MM)));
             telemetry.addData("rangeR", String.format("%.01f mm", Common.sensorDistanceR.getDistance(DistanceUnit.MM)));
             */
-            if (gamepad2.start){
-                Common.zeroBothMotors();
-            }
-            telemetry.addData("red value", redValue);
-            telemetry.addData("blue value", blueValue);
-            telemetry.addData("green value", greenValue);
+
 
             if (gamepad1.b && !lastB) {
                 if (!hoodUp) {
@@ -284,8 +283,6 @@ public class PpBot extends LinearOpMode {
                     hoodUp = false;
                 }
             }
-
-// Telemetry
             telemetry.addData("Direction Up?", hoodUp);
 
 
@@ -299,7 +296,6 @@ public class PpBot extends LinearOpMode {
                     lastKickTime = System.currentTimeMillis(); // record time
                 }
             }
-
             if (kickerUp && System.currentTimeMillis() - lastKickTime > 500) { // after 0.5s
                 Common.kicker.setPosition(0.655); // move down
             }
@@ -319,65 +315,25 @@ public class PpBot extends LinearOpMode {
             }
             else {
                 ((DcMotorEx)Common.shooterMotor).setVelocity(0.0);
-
             }
 
 
             //=========================================================
             // INDEPENDENT INTAKE CONTROL (Gamepad Y)
             //=========================================================
-            if (gamepad1.y && (ballposition[0].equals("na") ||
-                    ballposition[1].equals("na") ||
-                    ballposition[2].equals("na"))) {
-                // first make sure shoot = true
-                if (!shoot) {
-                    curAngle += incrementamount;
-                    shoot = !shoot;
-                }
-                // then we make sure we are at a "na" slot
-
-                while (ballposition[curballselected] != "na" && gamepad1.y) {
-                    curAngle += 2 * incrementamount;
-                    curballselected = (curballselected + 1)%3;
-                }
-                // now at a na, so start intaking
-                while ( greenValue < 429 && gamepad1.y) {
-                    Common.rightIntake.setPower(1);
-                    Common.leftIntake.setPower(1);
-
-                    redValue = Common.colorsense.red();
-                    greenValue = Common.colorsense.green();
-                    blueValue = Common.colorsense.blue();
-
-                }
-
-                //none: 63, 77, 109   green: 272, 781, 1010   purple: 566, 1119, 656
-
-                // ADD THE NEXT PART ONCE YOU HAVE PURPLE AND GREEN VALUES
-
-                if (blueValue < 833) {
-                    ballposition[curballselected] = "purple";
-                }
-                else {
-                    ballposition[curballselected] = "green";
-                }
-
-
+            if (gamepad1.y) {
+                // When Y is pressed, turn the intake motors on.
+                Common.rightIntake.setPower(1);
+                Common.leftIntake.setPower(1);
+                Common.upperIntake.setPower(1);
             } else {
                 // When Y is NOT pressed, turn the intake motors off.
                 Common.rightIntake.setPower(0);
-
+                Common.leftIntake.setPower(0);
+                Common.upperIntake.setPower(0);
             }
 
-            String detected = colorsense.classify(this);
 
-            telemetry.addData("Detected", detected);
-
-
-
-            telemetry.addData("ball 1", ballposition[0]);
-            telemetry.addData("ball 2", ballposition[1]);
-            telemetry.addData("ball 3", ballposition[2]);
 
             lastA = gamepad1.a;
             lastB = gamepad1.b;
