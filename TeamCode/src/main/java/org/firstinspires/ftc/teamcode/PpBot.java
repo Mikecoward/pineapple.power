@@ -337,7 +337,7 @@ public class PpBot extends LinearOpMode {
                     // optional: small sleep to avoid tight loop
                     sleep(10);
                 }
-
+                sleep(800);
                 // Once redValue >= 600, turn motors off
                 Common.rightIntake.setPower(0);
                 Common.leftIntake.setPower(0);
