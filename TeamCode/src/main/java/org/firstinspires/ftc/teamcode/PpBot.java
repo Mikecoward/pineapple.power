@@ -326,12 +326,29 @@ public class PpBot extends LinearOpMode {
                 Common.rightIntake.setPower(1);
                 Common.leftIntake.setPower(1);
                 Common.upperIntake.setPower(1);
+
+                // Keep reading the color sensor until redValue >= 600
+                blueValue = Common.colorsense.blue();
+                while (redValue < 100 && opModeIsActive()) {
+                    blueValue = Common.colorsense.blue(); // continuously update
+                    telemetry.addData("Bluelue", redValue);
+                    telemetry.update();
+
+                    // optional: small sleep to avoid tight loop
+                    sleep(10);
+                }
+
+                // Once redValue >= 600, turn motors off
+                Common.rightIntake.setPower(0);
+                Common.leftIntake.setPower(0);
+                Common.upperIntake.setPower(0);
             } else {
                 // When Y is NOT pressed, turn the intake motors off.
                 Common.rightIntake.setPower(0);
                 Common.leftIntake.setPower(0);
                 Common.upperIntake.setPower(0);
             }
+
 
 
 
