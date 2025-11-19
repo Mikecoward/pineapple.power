@@ -329,9 +329,9 @@ public class PpBot extends LinearOpMode {
 
                 // Keep reading the color sensor until redValue >= 600
                 blueValue = Common.colorsense.blue();
-                while (redValue < 100 && opModeIsActive()) {
+                while (blueValue < 100 && opModeIsActive()) {
                     blueValue = Common.colorsense.blue(); // continuously update
-                    telemetry.addData("Bluelue", redValue);
+                    telemetry.addData("Bluelue", blueValue);
                     telemetry.update();
 
                     // optional: small sleep to avoid tight loop
