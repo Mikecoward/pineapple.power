@@ -84,6 +84,7 @@ class Common {
     static DcMotor  shooterMotor     = null;
     static CRServo leftIntake = null;
     static CRServo rightIntake = null;
+    static CRServo upperIntake = null;
     public static Servo kicker = null;
 
 
@@ -243,6 +244,8 @@ class Common {
 
         leftIntake = hardwareMap.get(CRServo.class, "leftIntake");
         rightIntake = hardwareMap.get(CRServo.class, "rightIntake");
+        upperIntake = hardwareMap.get(CRServo.class, "upperIntake");
+
 
         /*
         liftMotor       = hardwareMap.dcMotor.get("vertmotor");
@@ -254,7 +257,10 @@ class Common {
         leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
         //shooterMotor.setDirection(DcMotorSimple.Direction.REVERSE);
         rightIntake.setDirection(CRServo.Direction.REVERSE);
+        upperIntake.setDirection(CRServo.Direction.REVERSE);
         /*
+
+
          Setting zeroPowerBehavior to BRAKE enables a "brake mode". This causes the motor to slow down
         much faster when it is coasting. This creates a much more controllable drivetrain. As the robot
         stops much quicker. */

@@ -149,7 +149,7 @@ public class PpBot extends LinearOpMode {
         /*
         1These variables are private to the OpMode, and are used to control the drivetrain.
          */
-        CRServo spinner = hardwareMap.get(CRServo.class, "Spinner");
+        CRServo spinner = hardwareMap.get(CRServo.class, "spinner");
         AnalogInput spinEncoder = hardwareMap.get(AnalogInput.class, "spinEncoder");
 
 
@@ -228,22 +228,24 @@ public class PpBot extends LinearOpMode {
         //double lastVoltage = 0;       // last voltage reading
         double voltageToDegrees = 360; // 1 full rotation per 5V (adjust for your encoder)
 
-        //int redValue = Common.colorsense.red();
-        //int greenValue = Common.colorsense.green();
-        //int blueValue = Common.colorsense.blue();
+        int redValue = Common.colorsense.red();
+        int greenValue = Common.colorsense.green();
+        int blueValue = Common.colorsense.blue();
 
         String[] ballposition = {"na", "na", "na"};
         int curballselected = 0;
         int incrementamount =48;
         double kP = 0.01;
 
+        colorsense.calibrate(this);
+
 
         while (opModeIsActive()){
 
             Common.updatePinpoint();   // <-- Step 1, update Pinpoint
-            int redValue = Common.colorsense.red();
-            int greenValue = Common.colorsense.green();
-            int blueValue = Common.colorsense.blue();
+            redValue = Common.colorsense.red();
+            greenValue = Common.colorsense.green();
+            blueValue = Common.colorsense.blue();
 
             // Button pressed now, but wasn't pressed last loop
             if (gamepad1.a && !lastA && !kickerUp) {
@@ -283,33 +285,7 @@ public class PpBot extends LinearOpMode {
                 }
             }
 
-
-            lastB = gamepad1.b;
-
-            double currentAngle = Common.hoodEncoder.getVoltage() * 72; // scale voltage to degrees
-            double lastVoltage = 0;
-            double cumulativeAngle = 0;
-
-            double rawVoltage = Common.hoodEncoder.getVoltage();
-            double delta = rawVoltage - lastVoltage;
-
-            // unwrap crossing 0/5V
-            if (delta > +2.5) delta -= 5.0;
-            if (delta < -2.5) delta += 5.0;
-
-            cumulativeAngle += delta * 72; // 72 deg per volt
-            lastVoltage = rawVoltage;
-
-            double error = targetAngle - currentAngle;
-            if (Math.abs(error) > tolerance) {
-                Common.AngleHood.setPower(Math.signum(error)); // full power toward target
-            } else {
-                Common.AngleHood.setPower(0); // stop when close enough
-            }
-
 // Telemetry
-            telemetry.addData("Current Angle", currentAngle);
-            telemetry.addData("Target Angle", targetAngle);
             telemetry.addData("Direction Up?", hoodUp);
 
 
@@ -350,17 +326,58 @@ public class PpBot extends LinearOpMode {
             //=========================================================
             // INDEPENDENT INTAKE CONTROL (Gamepad Y)
             //=========================================================
-            if (gamepad1.y) {
-                // When Y is pressed, turn the intake motors on.
-                Common.rightIntake.setPower(1);
-                Common.leftIntake.setPower(1);
+            if (gamepad1.y && (ballposition[0].equals("na") ||
+                    ballposition[1].equals("na") ||
+                    ballposition[2].equals("na"))) {
+                // first make sure shoot = true
+                if (!shoot) {
+                    curAngle += incrementamount;
+                    shoot = !shoot;
+                }
+                // then we make sure we are at a "na" slot
+
+                while (ballposition[curballselected] != "na" && gamepad1.y) {
+                    curAngle += 2 * incrementamount;
+                    curballselected = (curballselected + 1)%3;
+                }
+                // now at a na, so start intaking
+                while ( greenValue < 429 && gamepad1.y) {
+                    Common.rightIntake.setPower(1);
+                    Common.leftIntake.setPower(1);
+
+                    redValue = Common.colorsense.red();
+                    greenValue = Common.colorsense.green();
+                    blueValue = Common.colorsense.blue();
+
+                }
+
+                //none: 63, 77, 109   green: 272, 781, 1010   purple: 566, 1119, 656
+
+                // ADD THE NEXT PART ONCE YOU HAVE PURPLE AND GREEN VALUES
+
+                if (blueValue < 833) {
+                    ballposition[curballselected] = "purple";
+                }
+                else {
+                    ballposition[curballselected] = "green";
+                }
+
+
             } else {
                 // When Y is NOT pressed, turn the intake motors off.
                 Common.rightIntake.setPower(0);
-                Common.leftIntake.setPower(0);
+
             }
 
+            String detected = colorsense.classify(this);
 
+            telemetry.addData("Detected", detected);
+
+
+
+            telemetry.addData("ball 1", ballposition[0]);
+            telemetry.addData("ball 2", ballposition[1]);
+            telemetry.addData("ball 3", ballposition[2]);
 
             lastA = gamepad1.a;
             lastB = gamepad1.b;
