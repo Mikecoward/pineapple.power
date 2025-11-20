@@ -382,21 +382,105 @@ public class PpBot extends LinearOpMode {
             //=========================================================
             // INDEPENDENT INTAKE CONTROL (Gamepad Y)
             //=========================================================
-            if (gamepad1.y) {
-                // When Y is pressed, turn the intake motors on.
-                Common.rightIntake.setPower(1);
-                Common.leftIntake.setPower(1);
+            if (gamepad1.y && (ballposition[0].equals("na") ||
+                    ballposition[1].equals("na") ||
+                    ballposition[2].equals("na"))) {
+                // first make sure shoot = true
+                if (!shoot) {
+                    targetRotation += incrementamount;
+                    shoot = !shoot;
+                }
+                Common.spin.update();
+                currentRotation = Common.spin.getTotalRotation();
+                spinnerError = targetRotation - currentRotation; // Correct error calculation (Target - Current)
+
+                while (Math.abs(spinnerError) > 1) {
+                    Common.spin.update();
+                    currentRotation = Common.spin.getTotalRotation();
+                    spinnerError = targetRotation - currentRotation; // Correct error calculation (Target - Current)
+
+                    // Calculate power using a proportional gain
+                    power = -spinnerError * 0.005; // Using your kP variable which is 0.01
+
+                    // *** THIS IS THE FIX: Constrain the power value ***
+                    // First, limit the power to a maximum of 0.2
+                    power = Math.min(power, 0.2);
+                    // Then, limit the power to a minimum of -0.2
+                    power = Math.max(power, -0.2);
+
+
+                    // Set a "deadband" or tolerance. If the error is very small, just stop.
+                    if (Math.abs(spinnerError) > 1) {
+                        // Move until target reached
+                        Common.spin.setPower(power);
+                    }
+
+                }
+                while (ballposition[curballselected] != "na") {
+                    targetRotation += 2 * incrementamount;
+                    curballselected = (curballselected + 1)%3;
+                }
+                Common.spin.update();
+                currentRotation = Common.spin.getTotalRotation();
+                spinnerError = targetRotation - currentRotation; // Correct error calculation (Target - Current)
+
+
+
+                while (Math.abs(spinnerError) > 1) {
+                    Common.spin.update();
+                    currentRotation = Common.spin.getTotalRotation();
+                    spinnerError = targetRotation - currentRotation; // Correct error calculation (Target - Current)
+
+                    // Calculate power using a proportional gain
+                    power = -spinnerError * 0.005; // Using your kP variable which is 0.01
+
+                    // *** THIS IS THE FIX: Constrain the power value ***
+                    // First, limit the power to a maximum of 0.2
+                    power = Math.min(power, 0.2);
+                    // Then, limit the power to a minimum of -0.2
+                    power = Math.max(power, -0.2);
+
+
+                    // Set a "deadband" or tolerance. If the error is very small, just stop.
+                    if (Math.abs(spinnerError) > 1) {
+                        // Move until target reached
+                        Common.spin.setPower(power);
+
+                    }
+                }
+                // now at a na, so start intaking
+                while (blueValue < 100) {
+                    Common.rightIntake.setPower(1);
+                    Common.leftIntake.setPower(1);
+                    Common.upperIntake.setPower(1);
+                    redValue = Common.colorsense.red();
+                    greenValue = Common.colorsense.green();
+                    blueValue = Common.colorsense.blue();
+
+                }
+                // now that means we have the ball in
+                ballposition[curballselected] = "ball";
+                // ADD THE NEXT PART ONCE YOU HAVE PURPLE AND GREEN VALUES
+                /*
+                if (rlow < redValue < rhigh && glow < greenValue < ghigh && blow < blueValue < bhigh) {
+                    ballposition[curballselected] = "purple"
+                }
+                else if (rlow < redValue < rhigh && glow < greenValue < high = g && blow < blueValue < high) {
+                    ballposition[curballselected] = "green"
+                }
+                 */
             } else {
                 // When Y is NOT pressed, turn the intake motors off.
                 Common.rightIntake.setPower(0);
                 Common.leftIntake.setPower(0);
+                Common.upperIntake.setPower(0);
+
             }
 
 
 
             lastA = gamepad1.a;
             lastB = gamepad1.b;
-            lastA = gamepad1.a; // update button state
             telemetry.addData("Servo Angle", curAngle);
             telemetry.addData("motor speed", ((DcMotorEx) Common.shooterMotor).getVelocity());
             if (gamepad1.a) {
