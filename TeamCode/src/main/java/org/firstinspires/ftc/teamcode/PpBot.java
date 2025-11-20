@@ -146,11 +146,6 @@ public class PpBot extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        /*
-        1These variables are private to the OpMode, and are used to control the drivetrain.
-         */
-        CRServo spinner = hardwareMap.get(CRServo.class, "Spinner");
-        AnalogInput spinEncoder = hardwareMap.get(AnalogInput.class, "spinEncoder");
 
 
         char colorf = 'n';
