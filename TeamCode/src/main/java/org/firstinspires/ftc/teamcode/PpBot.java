@@ -217,7 +217,8 @@ public class PpBot extends LinearOpMode {
         boolean hoodUp = false;
         double targetAngle = 0;       // accumulated target
 
-        double moveAmount = 12 * 360;      // degrees per press (2 rotations)
+        double moveAmount = 24* 360;      // degrees per press (2 rotations)
+        double incrementAmount = 30; // degrees per press (2 rotations)
         double tolerance = 5;         // degrees to stop within
         double currentCumulativeAngle = 0; // cumulative hood angle
         //double lastVoltage = 0;       // last voltage reading
@@ -233,6 +234,7 @@ public class PpBot extends LinearOpMode {
         double kP = 0.01;
 
         boolean moving = true;
+        double spinnerError = 0;
         double targetRotation = 0;
 
         while (opModeIsActive()){
@@ -244,20 +246,43 @@ public class PpBot extends LinearOpMode {
 
             Common.spin.update();
             double currentRotation = Common.spin.getTotalRotation();
+            spinnerError = targetRotation - currentRotation; // Correct error calculation (Target - Current)
 
-            if (moving) {
+            // Calculate power using a proportional gain
+            double power = -spinnerError * 0.005; // Using your kP variable which is 0.01
+
+            // *** THIS IS THE FIX: Constrain the power value ***
+            // First, limit the power to a maximum of 0.2
+            power = Math.min(power, 0.2);
+            // Then, limit the power to a minimum of -0.2
+            power = Math.max(power, -0.2);
+
+
+            // Set a "deadband" or tolerance. If the error is very small, just stop.
+            if (Math.abs(spinnerError) > 1) {
                 // Move until target reached
-                if (currentRotation < targetRotation) {
-                    Common.spin.setPower(-0.20);
-                } else {
-                    Common.spin.setPower(0);
-                    moving = false;
-                }
+                Common.spin.setPower(power);
+            } else {
+                // When we are close enough to the target, stop the motor.
+                Common.spin.setPower(0);
             }
+
             // Button pressed now, but wasn't pressed last loop
             if (gamepad1.a && !lastA && !kickerUp) {
-                targetRotation += moveAmount;
+                targetRotation += incrementAmount;
             }
+//...
+
+            // Button pressed now, but wasn't pressed last loop
+            if (gamepad1.a && !lastA && !kickerUp) {
+                targetRotation += incrementAmount;
+                moving = true;
+            }
+            telemetry.addData("spinner angle", currentRotation);
+            telemetry.addData("target spinner angle", targetRotation);
+            telemetry.addData("error", spinnerError);
+            telemetry.addData("power", power);
+
 
             lastA = gamepad1.a;
 
