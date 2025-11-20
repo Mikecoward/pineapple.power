@@ -458,7 +458,7 @@ public class PpBot extends LinearOpMode {
                     blueValue = Common.colorsense.blue();
 
                 }
-                // now that means we have the ball in
+                //1 now that means we have the ball in
                 ballposition[curballselected] = "ball";
                 // ADD THE NEXT PART ONCE YOU HAVE PURPLE AND GREEN VALUES
                 /*
