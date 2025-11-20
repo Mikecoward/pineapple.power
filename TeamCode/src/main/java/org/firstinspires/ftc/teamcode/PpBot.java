@@ -149,7 +149,7 @@ public class PpBot extends LinearOpMode {
         /*
         1These variables are private to the OpMode, and are used to control the drivetrain.
          */
-        CRServo spinner = hardwareMap.get(CRServo.class, "spinner");
+        CRServo spinner = hardwareMap.get(CRServo.class, "Spinner");
         AnalogInput spinEncoder = hardwareMap.get(AnalogInput.class, "spinEncoder");
 
 
@@ -228,9 +228,9 @@ public class PpBot extends LinearOpMode {
         //double lastVoltage = 0;       // last voltage reading
         double voltageToDegrees = 360; // 1 full rotation per 5V (adjust for your encoder)
 
-        int redValue = Common.colorsense.red();
-        int greenValue = Common.colorsense.green();
-        int blueValue = Common.colorsense.blue();
+        //int redValue = Common.colorsense.red();
+        //int greenValue = Common.colorsense.green();
+        //int blueValue = Common.colorsense.blue();
 
         String[] ballposition = {"na", "na", "na"};
         int curballselected = 0;
@@ -241,15 +241,9 @@ public class PpBot extends LinearOpMode {
         while (opModeIsActive()){
 
             Common.updatePinpoint();   // <-- Step 1, update Pinpoint
-
-
-            redValue = Common.colorsense.red();
-            greenValue = Common.colorsense.green();
-            blueValue = Common.colorsense.blue();
-
-            telemetry.addData("red value", redValue);
-            telemetry.addData("blue value", blueValue);
-            telemetry.addData("green value", greenValue);
+            int redValue = Common.colorsense.red();
+            int greenValue = Common.colorsense.green();
+            int blueValue = Common.colorsense.blue();
 
             // Button pressed now, but wasn't pressed last loop
             if (gamepad1.a && !lastA && !kickerUp) {
@@ -272,7 +266,12 @@ public class PpBot extends LinearOpMode {
             /*1telemetry.addData("rangeL", String.format("%.01f mm", Common.sensorDistanceL.getDistance(DistanceUnit.MM)));
             telemetry.addData("rangeR", String.format("%.01f mm", Common.sensorDistanceR.getDistance(DistanceUnit.MM)));
             */
-
+            if (gamepad2.start){
+                Common.zeroBothMotors();
+            }
+            telemetry.addData("red value", redValue);
+            telemetry.addData("blue value", blueValue);
+            telemetry.addData("green value", greenValue);
 
             if (gamepad1.b && !lastB) {
                 if (!hoodUp) {
@@ -283,6 +282,34 @@ public class PpBot extends LinearOpMode {
                     hoodUp = false;
                 }
             }
+
+
+            lastB = gamepad1.b;
+
+            double currentAngle = Common.hoodEncoder.getVoltage() * 72; // scale voltage to degrees
+            double lastVoltage = 0;
+            double cumulativeAngle = 0;
+
+            double rawVoltage = Common.hoodEncoder.getVoltage();
+            double delta = rawVoltage - lastVoltage;
+
+            // unwrap crossing 0/5V
+            if (delta > +2.5) delta -= 5.0;
+            if (delta < -2.5) delta += 5.0;
+
+            cumulativeAngle += delta * 72; // 72 deg per volt
+            lastVoltage = rawVoltage;
+
+            double error = targetAngle - currentAngle;
+            if (Math.abs(error) > tolerance) {
+                Common.AngleHood.setPower(Math.signum(error)); // full power toward target
+            } else {
+                Common.AngleHood.setPower(0); // stop when close enough
+            }
+
+// Telemetry
+            telemetry.addData("Current Angle", currentAngle);
+            telemetry.addData("Target Angle", targetAngle);
             telemetry.addData("Direction Up?", hoodUp);
 
 
@@ -296,6 +323,7 @@ public class PpBot extends LinearOpMode {
                     lastKickTime = System.currentTimeMillis(); // record time
                 }
             }
+
             if (kickerUp && System.currentTimeMillis() - lastKickTime > 500) { // after 0.5s
                 Common.kicker.setPosition(0.655); // move down
             }
@@ -315,6 +343,7 @@ public class PpBot extends LinearOpMode {
             }
             else {
                 ((DcMotorEx)Common.shooterMotor).setVelocity(0.0);
+
             }
 
 
@@ -325,30 +354,11 @@ public class PpBot extends LinearOpMode {
                 // When Y is pressed, turn the intake motors on.
                 Common.rightIntake.setPower(1);
                 Common.leftIntake.setPower(1);
-                Common.upperIntake.setPower(1);
-
-                // Keep reading the color sensor until redValue >= 600
-                blueValue = Common.colorsense.blue();
-                while (blueValue < 100 && opModeIsActive()) {
-                    blueValue = Common.colorsense.blue(); // continuously update
-                    telemetry.addData("Bluelue", blueValue);
-                    telemetry.update();
-
-                    // optional: small sleep to avoid tight loop
-                    sleep(10);
-                }
-                sleep(800);
-                // Once redValue >= 600, turn motors off
-                Common.rightIntake.setPower(0);
-                Common.leftIntake.setPower(0);
-                Common.upperIntake.setPower(0);
             } else {
                 // When Y is NOT pressed, turn the intake motors off.
                 Common.rightIntake.setPower(0);
                 Common.leftIntake.setPower(0);
-                Common.upperIntake.setPower(0);
             }
-
 
 
 
