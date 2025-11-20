@@ -237,6 +237,8 @@ public class PpBot extends LinearOpMode {
         int incrementamount =48;
         double kP = 0.01;
 
+        boolean moving = true;
+        double targetRotation = 0;
 
         while (opModeIsActive()){
 
@@ -245,12 +247,22 @@ public class PpBot extends LinearOpMode {
             int greenValue = Common.colorsense.green();
             int blueValue = Common.colorsense.blue();
 
+            Common.spin.update();
+            double currentRotation = Common.spin.getTotalRotation();
+
+            if (moving) {
+                // Move until target reached
+                if (currentRotation < targetRotation) {
+                    Common.spin.setPower(-0.20);
+                } else {
+                    Common.spin.setPower(0);
+                    moving = false;
+                }
+            }
             // Button pressed now, but wasn't pressed last loop
             if (gamepad1.a && !lastA && !kickerUp) {
-                curAngle += incrementamount;
-                if (curAngle >= 360) curAngle -= 360;
+                targetRotation += moveAmount;
             }
-
 
             lastA = gamepad1.a;
 

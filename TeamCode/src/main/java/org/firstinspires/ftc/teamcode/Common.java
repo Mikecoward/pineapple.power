@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
+import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.hardwareMap;
+
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -146,6 +148,8 @@ class Common {
     public static AnalogInput spinEncoder;
 
     public static CRServo Intake;
+
+    public static Axx spin;
     // Run motor slowly downwards until current gets too high, then decide that this must be the zero point.
     static void zeroBothMotors() {
         bucketServo.setPosition(BUCKET_DOWN);
@@ -208,6 +212,11 @@ class Common {
 
         Spinner = hardwareMap.get(CRServo.class, "spinner");
         spinEncoder = hardwareMap.get(AnalogInput.class, "spinEncoder");
+
+        spin = new Axx(Spinner, spinEncoder);
+
+        spin.setMaxPower(0.2);
+        spin.setRtp(false);     // DISABLE PID completely
 
         kicker = hardwareMap.get(Servo.class, "kicker");
 
