@@ -455,7 +455,7 @@ public class PpBot extends LinearOpMode {
                 shootingpower = -1400;
                 ball_shoot_selected = false;
                 kickerready = true;
-            }
+            }//1
 
             telemetry.addData("shootingpower", shootingpower);
             ((DcMotorEx) Common.shooterMotor).setVelocity(shootingpower);
