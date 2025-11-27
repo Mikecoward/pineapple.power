@@ -153,7 +153,8 @@ public class PpBot extends LinearOpMode {
     boolean specimenMode = false;
     boolean debounceSpecimen = false;
     IMU imu;
-    double shootingpower = 0;
+
+    double DRIVE_TICKS_PER_SEC_MAX = 2800.0;
 
 
     @Override
@@ -185,15 +186,6 @@ public class PpBot extends LinearOpMode {
 
 
         Common.telemetry = telemetry;
-        if (Common.initialPositionSet) {
-            Common.configRobot(hardwareMap, false);
-            telemetry.addLine("Taking position from previous run");
-
-        } else {
-            Common.configRobot(hardwareMap, true);
-            Common.setInitialPosition(-31.5, -63.5, 0);  // Right edge of robot aligned with second tile seam from right
-            telemetry.addLine("Setting position to -31.5, -63.5, 0");
-        }
 
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
 
@@ -211,57 +203,19 @@ public class PpBot extends LinearOpMode {
 
         /* Wait for the game driver to press play */
         waitForStart();
-/*
+
         Common.updatePinpoint();
-
-        Common.zeroBothMotors();
         /*
-        /* Run until the driver presses stop */
-        boolean lastA = false;
-        float rightTrigger = 0;
-        float leftTrigger = 0;
-        boolean rightbumperpressed = false;
-        boolean leftbumperpressed = false;
+        Common.zeroBothMotors();
+        */
 
-        double curAngle = 62; // current angle
-        //Common.Spinner.setPosition(curAngle/360);
-
-        //boolean hoodUp = false; // starts down
-        boolean kickerUp = false;
-        long lastKickTime = 0;
         Pose2D pos = Common.ppPos;
 
-        // At top of OpMode
-        boolean lastB = false;
-        boolean hoodUp = false;
-
-        double moveAmount = 24 * 360;      // degrees per press (2 rotations)
-        double incrementAmount = 60; // degrees per press (2 rotations)
-
-        String[] ballposition = {"na", "na", "na"};
-        int curballselected = 0;
-        double kP = 0.01;
-
-        // SPINNER STUFF
-        double spinnerError = 0;
-        double spinnerSpeed = 0;
-        double last_spinnerError = 0;
-        double targetRotation = 0;
 
 
-        double targetAngle = 0.0;
-
-        boolean intaking = false;
-        boolean shooting = false;
-        boolean ball_shoot_selected = false;
-        boolean kickerready = false;
-        String ballshoot = "na";
-
-
-        final double TURN_SPEED = 0.25; // Slower speed for alignment
-        final double TX_DEADBAND = 2.0; // Target is "aligned" if tx is within +/- 1.0 degrees
 
         while (opModeIsActive()) {
+
 
             LLStatus status = limelight.getStatus();
             LLResult result = limelight.getLatestResult();
@@ -273,225 +227,12 @@ public class PpBot extends LinearOpMode {
             Common.updatePinpoint();
 
 
-            Common.spin.update();
-            looptime = System.currentTimeMillis() - oldtime;
-            oldtime = System.currentTimeMillis();
-
-            // Calculate the error
-            double currentRotation = Common.spin.getTotalRotation();
-            spinnerError = targetRotation - currentRotation; // Correct error calculation (Target - Current)
-            spinnerSpeed = (spinnerError - last_spinnerError) / looptime; // Calculate speed
-            last_spinnerError = spinnerError;
-
-            double power = -spinnerError * 0.005 + spinnerSpeed * 0.0;
-            power = Math.min(power, 0.2);
-            power = Math.max(power, -0.2);
-
-            // Set a "deadband" or tolerance. If the error is very small, just stop.
-            if (Math.abs(spinnerError) > 1) {
-                // Move until target reached
-                Common.spin.setPower(power);
-            } else {
-                // When we are close enough to the target, stop the motor.
-                Common.spin.setPower(0);
-            }
-
-
-            telemetry.addData("spinner angle", currentRotation);
-            telemetry.addData("target spinner angle", targetRotation);
-            telemetry.addData("error", spinnerError);
-            telemetry.addData("power", power);
-
-
             if (gamepad2.start) {
                 Common.zeroBothMotors();
             }
 
-            if (gamepad1.b && !lastB) {
-                if (!hoodUp) {
-                    targetAngle += moveAmount; // move "up" 2 rotations
-                    hoodUp = true;
-                } else {
-                    targetAngle -= moveAmount; // move "down" 2 rotations
-                    hoodUp = false;
-                }
-            }
 
 
-
-
-/*
-            if (gamepad1.left_bumper && !leftbumperpressed) {
-                if  (targetRotation%60 == 0) {
-                    Common.kicker.setPosition(0.18);  // move up
-                    kickerUp = true;
-                    leftbumperpressed = true;
-                    lastKickTime = System.currentTimeMillis(); // record time
-                }
-            }
-
-
- */
-
-            if (!gamepad1.left_bumper) {
-                leftbumperpressed = false;
-            }
-
-
-            if (gamepad1.x) {
-                ((DcMotorEx) Common.shooterMotor).setVelocity(-6000 / 60.0 * 28.0);
-
-            } else {
-                ((DcMotorEx) Common.shooterMotor).setVelocity(0.0);
-
-            }
-
-
-            //=========================================================
-            // INDEPENDENT INTAKE CONTROL (left bumper)
-            //=========================================================
-            if (leftbumperpressed && gamepad1.left_bumper && (ballposition[0].equals("na") || ballposition[1].equals("na") || ballposition[2].equals("na"))) {
-                // When Y is pressed, turn the intake motors on.
-                intaking = true;
-                if (targetRotation % 360 == 60 || targetRotation % 360 == 180 || targetRotation % 360 == 300) {
-                    targetRotation += 60;
-                    curballselected = (curballselected + 1) % 3;
-                    ;
-                }
-
-                while (!ballposition[curballselected].equals("na")) {
-                    targetRotation += 2 * incrementAmount;
-                    curballselected = (curballselected + 1) % 3;
-
-                }
-            }
-
-
-            if (intaking) {
-                Common.rightIntake.setPower(1);
-                Common.leftIntake.setPower(1);
-                Common.upperIntake.setPower(1);
-            } else {
-                // When Y is NOT pressed, turn the intake motors off.
-                Common.rightIntake.setPower(0);
-                Common.leftIntake.setPower(0);
-                Common.upperIntake.setPower(0);
-            }
-
-            if (gamepad1.right_bumper && intaking) {
-                ballposition[curballselected] = "green";
-                intaking = false;
-                targetRotation += incrementAmount;
-            } else if (gamepad1.right_bumper && shooting) {
-                ball_shoot_selected = true;
-                ballshoot = "green";
-
-            }
-            if (gamepad1.right_trigger > 0.3 && intaking && !ball_shoot_selected) {
-                ballposition[curballselected] = "purple";
-                intaking = false;
-                targetRotation += incrementAmount;
-            } else if (gamepad1.right_trigger > 0.3 && shooting && !ball_shoot_selected) {
-                ball_shoot_selected = true;
-                ballshoot = "purple";
-            }
-
-            if ((!ballposition[0].equals(ballshoot) && !ballposition[1].equals(ballshoot) && !ballposition[2].equals(ballshoot)) && !ballshoot.equals("na")) {
-                shooting = false;
-                ballshoot = "na";
-                ball_shoot_selected = false;
-            }
-
-            telemetry.addData("ballposition", ballposition[0] + " " + ballposition[1] + " " + ballposition[2]);
-
-
-            //=========================================================
-            // INDEPENDENT shoot CONTROL (left trigger)
-            //=========================================================
-
-            if (leftTrigger == 0 && gamepad1.left_trigger >= 0.1 && !intaking) {
-                // When Y is pressed, turn the intake motors on.
-                ball_shoot_selected = false;
-                shooting = true;
-                kickerready = false;
-                kickerUp = false;
-            }
-
-
-            telemetry.addData("shooting", shooting);
-            telemetry.addData("ball_shoot_selected", ball_shoot_selected);
-            telemetry.addData("ballshoot", ballshoot);
-
-
-            telemetry.addData("ballposition", ballposition[0] + " " + ballposition[1] + " " + ballposition[2]);
-            telemetry.addData("curballselected", curballselected);
-            telemetry.addData("kickerready", kickerready);
-            telemetry.addData("kickerUp", kickerUp);
-
-            if (ball_shoot_selected && !ballshoot.equals("na")) {
-
-                telemetry.addLine("____ SHOOTING ____");
-                if (targetRotation % 360 == 0 || targetRotation % 360 == 120 || targetRotation % 360 == 240) {
-                    targetRotation += incrementAmount;
-                    curballselected = (curballselected + 1) % 3;
-                }
-
-                telemetry.addLine("one has it");
-                if (ballposition[(curballselected) % 3].equals(ballshoot)) {
-                    targetRotation += 2 * incrementAmount;
-                    curballselected = (curballselected + 1) % 3;
-                    telemetry.addLine("____  add____");
-                } else if (ballposition[(curballselected + 2) % 3].equals(ballshoot)) {
-                    // do nothing
-                    telemetry.addLine("____ nothing ____");
-
-                } else if (ballposition[(curballselected + 1) % 3].equals(ballshoot)) {
-                    telemetry.addLine("____ subtract ____");
-                    targetRotation += 4 * incrementAmount;
-                    curballselected = (curballselected + 2) % 3;
-                }
-
-
-                shootingpower = -1400;
-                ball_shoot_selected = false;
-                kickerready = true;
-            }//1
-
-            telemetry.addData("shootingpower", shootingpower);
-            ((DcMotorEx) Common.shooterMotor).setVelocity(shootingpower);
-
-            if (((DcMotorEx) Common.shooterMotor).getVelocity() <= 1400 && shooting && kickerready && shootingpower != 0 ) {
-                telemetry.addLine("shooting");
-                Common.kicker.setPosition(0.18);  // move up
-                lastKickTime = System.currentTimeMillis(); // record time
-                kickerUp = true;
-
-            }
-            telemetry.addData("time", System.currentTimeMillis() - lastKickTime);
-            if (System.currentTimeMillis() - lastKickTime > 500 && shooting && kickerUp) { // after 0.5s
-                telemetry.addLine("kickerdown");
-
-                Common.kicker.setPosition(0.655); // move down
-                ballposition[(curballselected + 1) % 3] = "na";
-                ballshoot = "na";
-                ball_shoot_selected = false;
-                shooting = false;
-                kickerUp = false;
-                kickerready = false;
-                shootingpower = 0;
-            }
-
-            lastB = gamepad1.b;
-            leftbumperpressed = gamepad1.left_bumper;
-            leftTrigger = gamepad1.left_trigger;
-            leftTrigger = gamepad1.left_trigger;
-            rightTrigger = gamepad1.right_trigger;
-            rightbumperpressed = gamepad1.right_bumper;
-
-
-            telemetry.addData("Servo Angle", curAngle);
-
-            telemetry.addData("motor speed", ((DcMotorEx) Common.shooterMotor).getVelocity());
             if (gamepad1.a) {
                 telemetry.addLine("Pressed A");
             }
@@ -506,18 +247,12 @@ public class PpBot extends LinearOpMode {
             }
 
             if (gamepad1.start) {
-                Common.setInitialPosition(16.5, -63.5, 0);  // Right edge of robot aligned with second tile seam from right
+                Common.setInitialPosition(0, 0, 0);
             }
 
             handleJoystick();
             telemetry.update();
         }
-    }
-
-    private double applyExpo(double input, double powerfactor, double minfactor) {
-        if (input == 0) return 0;
-        return input * Math.pow(Math.abs(input), powerfactor - 1)
-                + (Math.signum(input) * minfactor);
     }
 
     private void handleJoystick() {
@@ -526,14 +261,11 @@ public class PpBot extends LinearOpMode {
 
         double stickY = -gamepad1.right_stick_y;
         double stickX = gamepad1.right_stick_x;
-        double stickR = gamepad1.left_stick_x;
+        double stickR = gamepad1.left_stick_x/1.5;
 
         // Reverse Sticks
 
-        if (swapDirections) {
-            stickY = -stickY;
-            stickX = -stickX;
-        }
+
         double minfactor = 0.05;
         double powerfactor = 1.200;
         // Expo control:
@@ -547,6 +279,7 @@ public class PpBot extends LinearOpMode {
             stickR = stickR * Math.pow(Math.abs(stickR), powerfactor-1)+ (stickR/Math.abs(stickR)*minfactor);
         }
         stickX = stickX * 1.1; // Counteract imperfect strafing
+
 
         // Denominator is the largest motor power (absolute value) or 1
         // This ensures all the powers maintain the same ratio,
@@ -596,9 +329,9 @@ public class PpBot extends LinearOpMode {
         }
 
         //these codes just set the power for everything
-        ((DcMotorEx) Common.leftFrontDrive).setPower(frontLeftPower);
-        ((DcMotorEx) Common.leftBackDrive).setPower(backLeftPower);
-        ((DcMotorEx) Common.rightFrontDrive).setPower(frontRightPower);
-        ((DcMotorEx) Common.rightBackDrive).setPower(backRightPower);
+        ((DcMotorEx) Common.leftFrontDrive).setPower(frontLeftPower * DRIVE_TICKS_PER_SEC_MAX);
+        ((DcMotorEx) Common.leftBackDrive).setPower(backLeftPower * DRIVE_TICKS_PER_SEC_MAX);
+        ((DcMotorEx) Common.rightFrontDrive).setPower(frontRightPower * DRIVE_TICKS_PER_SEC_MAX);
+        ((DcMotorEx) Common.rightBackDrive).setPower(backRightPower * DRIVE_TICKS_PER_SEC_MAX);
     }
 }
