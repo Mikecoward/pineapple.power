@@ -66,6 +66,7 @@ import com.qualcomm.robotcore.hardware.DistanceSensor;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.UnnormalizedAngleUnit;
 //import org.firstinspires.ftc.teamcode2.ColorSensorV31;
 
 import java.lang.Math;
@@ -83,42 +84,10 @@ class Common {
     static DcMotor  rightFrontDrive  = null;
     static DcMotor  leftBackDrive    = null;
     static DcMotor  rightBackDrive   = null;
-    static DcMotor  shooterMotor     = null;
-    static CRServo leftIntake = null;
-    static CRServo rightIntake = null;
-    static CRServo upperIntake = null;
-    public static Servo kicker = null;
 
-
-
-    static Servo IntakeDeploy = null;
-    static Servo bucketServo = null;
-    static Servo sweeperServo = null;
-    static DcMotor  liftMotor        = null;
-    static DcMotor  armExtMotor      = null;
-
-    static ColorSensor colorsense = null;
-
-    static CRServo intakeServo1 = null;
-    static CRServo intakeServo0 = null;
 
     static Limelight3A limelight;
     static IMU imu = null;
-
-    static LED topLED_red;
-    static LED topLED_green;
-
-    static boolean redAlliance = false;
-
-    static double INTAKE_UP = 0.07;
-    static double INTAKE_DUMP_SPECIMEN = 0.55;
-    static double INTAKE_DOWN = 0.73;
-
-    static double BUCKET_UP = 0.26;
-    static double BUCKET_DOWN = 0.91;
-
-    static double SWEEPER_IN = 0.39;
-    static double SWEEPER_OUT = 0.8;
 
     static GoBildaPinpointDriver odo;
     static Pose2D ppPos, ppVel, targetPos;
@@ -132,195 +101,64 @@ class Common {
     static Gamepad gamepad2 = null;
 
 
-    static double liftPosition = 0;
-    static double armExtPosition = 0;
-
-//    static ColorSensorV31 colorSensorF;
-//    static ColorSensorV31 colorSensorB;
-
-    static DistanceSensor sensorDistanceL;
-    static DistanceSensor sensorDistanceR;
-
-    public static CRServo AngleHood;
-    public static AnalogInput hoodEncoder;
-
-    public static CRServo Spinner;
-    public static AnalogInput spinEncoder;
-
-    public static CRServo Intake;
-
-    public static Axx spin;
     // Run motor slowly downwards until current gets too high, then decide that this must be the zero point.
     static void zeroBothMotors() {
-        bucketServo.setPosition(BUCKET_DOWN);
-        IntakeDeploy.setPosition(INTAKE_UP);
+        // we don't need anything here yet
+        // Only zero a motor if the mechanism has a known physical reference point that the motor can safely move into.
 
-        armExtMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        armExtMotor.setPower(-0.4);
-        liftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        liftMotor.setPower(-0.4);
-        boolean endext = false;
-        boolean endlift = false;
-        while (!endext|| !endlift) {
-            telemetry.addData("Arm Motor Current:",((DcMotorEx) armExtMotor).getCurrent(CurrentUnit.AMPS));
-            telemetry.addData("Lift Motor Current:",((DcMotorEx) liftMotor).getCurrent(CurrentUnit.AMPS));
-
-            if (((DcMotorEx) liftMotor).getCurrent(CurrentUnit.AMPS)>2.0){
-                liftMotor.setTargetPosition(0);
-                liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                ((DcMotorEx) liftMotor).setVelocity(2300);
-                // Get off the bottom slightly to avoid overcurrent
-                liftMotor.setTargetPosition(20);
-                liftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-                liftMotor.setTargetPosition(20);
-                liftPosition = 20;
-                endlift = true;
-            }
-            if (((DcMotorEx) armExtMotor).getCurrent(CurrentUnit.AMPS)>2.0){
-                armExtMotor.setTargetPosition(0);
-                armExtMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                ((DcMotorEx) armExtMotor).setVelocity(2300);
-
-
-                // Get off the bottom slightly to avoid overcurrent
-                armExtMotor.setTargetPosition(40);
-                armExtMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-                armExtMotor.setTargetPosition(40);
-                armExtPosition = 40;
-                endext = true;
-            }
-            telemetry.update();
-        }
     }
 
     static void configRobot(HardwareMap hardwareMap, boolean recalibrateIMU) {
-        odo = hardwareMap.get(GoBildaPinpointDriver.class, "odo");
 
-        // Set pose to X=0 mm, Y=0 mm, Heading=0 degrees
-        odo.setPosition(new Pose2D(
-                DistanceUnit.MM,
-                0.0,
-                0.0,
-                AngleUnit.DEGREES,
-                0.0
-        ));
-
-        odo.resetPosAndIMU();
-
-        AngleHood = hardwareMap.get(CRServo.class, "hood");
-        hoodEncoder = hardwareMap.get(AnalogInput.class, "hoodencoder");
-
-        Spinner = hardwareMap.get(CRServo.class, "spinner");
-        spinEncoder = hardwareMap.get(AnalogInput.class, "spinEncoder");
-
-        spin = new Axx(Spinner, spinEncoder);
-
-        spin.setMaxPower(0.2);
-        spin.setRtp(false);     // DISABLE PID completely
-
-        kicker = hardwareMap.get(Servo.class, "kicker");
-
-        colorsense = hardwareMap.get(ColorSensor.class, "colorsense" );
-        //Intake = hardwareMap.get(CRServo.class, "intaketop");
         configurePinpoint(hardwareMap, recalibrateIMU);
-        /*1
-        limelight = hardwareMap.get(Limelight3A.class, "limelight");
-        telemetry.setMsTransmissionInterval(11);
-        limelight.pipelineSwitch(0);
-        limelight.start();
 
-        colorSensorF = hardwareMap.get(ColorSensorV31.class, "sensor_color");
-        colorSensorF.initSensor();
-        colorSensorB = hardwareMap.get(ColorSensorV31.class, "sensor_color2");
-        colorSensorB.initSensor();
-
-
-        sensorDistanceL = hardwareMap.get(DistanceSensor.class, "sensor_distance0");
-        sensorDistanceR = hardwareMap.get(DistanceSensor.class, "sensor_distance1");
-        */
-        /* Define and Initialize Motors */
         leftFrontDrive  = hardwareMap.dcMotor.get("leftFront");
         leftBackDrive   = hardwareMap.dcMotor.get("leftBack");
         rightFrontDrive = hardwareMap.dcMotor.get("rightFront");
         rightBackDrive  = hardwareMap.dcMotor.get("rightBack");
 
-        shooterMotor  = hardwareMap.dcMotor.get("shooterMotor");
+        // making all of these set velocity
+        leftFrontDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        leftFrontDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        leftFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        leftBackDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        leftBackDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        leftBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
+        rightFrontDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightFrontDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rightFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
+        rightBackDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightBackDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        rightBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
 
-        leftIntake = hardwareMap.get(CRServo.class, "leftIntake");
-        rightIntake = hardwareMap.get(CRServo.class, "rightIntake");
-        upperIntake = hardwareMap.get(CRServo.class, "upperIntake");
-
-
-        /*
-        liftMotor       = hardwareMap.dcMotor.get("vertmotor");
-        //armRotMotor     = hardwareMap.dcMotor.get("armrotmotor");
-        armExtMotor     = hardwareMap.dcMotor.get("armextmotor");
-
-       */
         leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
         leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
-        //shooterMotor.setDirection(DcMotorSimple.Direction.REVERSE);
-        rightIntake.setDirection(CRServo.Direction.REVERSE);
-        upperIntake.setDirection(CRServo.Direction.REVERSE);
+
         /*
-
-
-         Setting zeroPowerBehavior to BRAKE enables a "brake mode". This causes the motor to slow down
+        Setting zeroPowerBehavior to BRAKE enables a "brake mode". This causes the motor to slow down
         much faster when it is coasting. This creates a much more controllable drivetrain. As the robot
         stops much quicker. */
         leftFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        /*
-        ((DcMotorEx) liftMotor).setCurrentAlert(2,CurrentUnit.AMPS);
-
-        liftMotor.setDirection(DcMotorSimple.Direction.REVERSE);
-        liftMotor.setTargetPosition(0);
-        liftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        ((DcMotorEx) liftMotor).setVelocity(2300);
-        liftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-
-
-        armExtMotor.setDirection(DcMotorSimple.Direction.FORWARD);
-        armExtMotor.setTargetPosition(0);
-        armExtMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        armExtMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        ((DcMotorEx) armExtMotor).setVelocity(2300);
-        armExtMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-
-        intakeServo1 = hardwareMap.get(CRServo.class, "intake1");
-        intakeServo0 = hardwareMap.get(CRServo.class, "intake0");
-        IntakeDeploy = hardwareMap.get(Servo.class, "intakeDeploy");
-        bucketServo = hardwareMap.get(Servo.class, "bucket");
-        sweeperServo = hardwareMap.get(Servo.class, "sweeper");
-        sleep(100);
-        sweeperServo.setPosition(SWEEPER_IN);
-        */
-        checkAlliance(hardwareMap);
-        /*
-        topLED_green = hardwareMap.get(LED.class, "led1");
-        topLED_red = hardwareMap.get(LED.class, "led0");
-        topLED_green.off();
-        topLED_red.off();*/
 
     }
 
     static boolean initialPositionSet = false;
     // Sets position in the Pinpoint IMU
     static void setInitialPosition(double X, double Y, double H) {
-        /*odo.setPosition(new Pose2D(DistanceUnit.INCH,
+        odo.setPosition(new Pose2D(
+                DistanceUnit.MM,
                 X,
                 Y,
                 AngleUnit.DEGREES,
-                H+90));  // Add 90 to correct for field vs Pinpoint coordinates
-        initialPositionSet = true;
+                H
+        ));
     }
 
     static void tempMT2() {
@@ -354,11 +192,6 @@ class Common {
         }
     }
 
-    static void sweepField() {
-        sweeperServo.setPosition(SWEEPER_OUT);
-        sleep(1000);
-        sweeperServo.setPosition(SWEEPER_IN);
-    }
 
     static void updatePinpoint() {
             odo.update();
@@ -368,31 +201,34 @@ class Common {
             telemetry.addData("Position", data);
 
 
-            gets the current Velocity (x & y in mm/sec and heading in degrees/sec) and prints it.
+            //gets the current Velocity (x & y in mm/sec and heading in degrees/sec) and prints it.
+            odo.update();
 
-            ppVel = odo.getVelocity();
-            String velocity = String.format(Locale.US,"{XVel: %.3f, YVel: %.3f, HVel: %.3f}", ppVel.getX(DistanceUnit.MM), ppVel.getY(DistanceUnit.MM), ppVel.getHeading(AngleUnit.DEGREES));
-            telemetry.addData("Velocity", velocity);
+            double vx = odo.getVelX(DistanceUnit.MM);
+            double vy = odo.getVelY(DistanceUnit.MM);
+            double vh = odo.getHeadingVelocity(UnnormalizedAngleUnit.DEGREES);
+            telemetry.addData("Velocity",
+                    String.format(Locale.US, "{XVel: %.2f, YVel: %.2f, HVel: %.2f}", vx, vy, vh));
 
 
-            Gets the Pinpoint device status. Pinpoint can reflect a few states. But we'll primarily see
-            READY: the device is working as normal
-            CALIBRATING: the device is calibrating and outputs are put on hold
-            NOT_READY: the device is resetting from scratch. This should only happen after a power-cycle
-            FAULT_NO_PODS_DETECTED - the device does not detect any pods plugged in
-            FAULT_X_POD_NOT_DETECTED - The device does not detect an X pod plugged in
-            FAULT_Y_POD_NOT_DETECTED - The device does not detect a Y pod plugged in
+            /*
+             Gets the Pinpoint device status. Pinpoint can reflect a few states:
+               READY: device working normally
+               CALIBRATING: IMU calibrating
+               NOT_READY: resetting after power cycle
+               FAULT_NO_PODS_DETECTED
+               FAULT_X_POD_NOT_DETECTED
+               FAULT_Y_POD_NOT_DETECTED
+            */
 
             telemetry.addData("Status", odo.getDeviceStatus());
-    */
+
 
     }
 
     static void configurePinpoint(HardwareMap hardwareMap, boolean recalibrateIMU) {
-        // Initialize the hardware variables. Note that the strings used here must correspond
-        // to the names assigned during the robot configuration step on the DS or RC devices.
 
-        //odo = hardwareMap.get(GoBildaPinpointDriver.class,"pinpoint");
+        odo = hardwareMap.get(GoBildaPinpointDriver.class,"pinpoint");
 
 
         /*
@@ -411,12 +247,14 @@ class Common {
         If you're using another kind of odometry pod, uncomment setEncoderResolution and input the
         number of ticks per mm of your odometry pod.
          */
+
         odo.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
         /*
         Set the direction that each of the two odometry pods count. The X (forward) pod should
         increase when you move the robot forward. And the Y (strafe) pod should increase when
         you move the robot to the left.
          */
+
         odo.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD, GoBildaPinpointDriver.EncoderDirection.REVERSED);
 
 
@@ -442,39 +280,7 @@ class Common {
         return botpose_mt2!=null;
     }
 
-    static void updatePinpoint() {
-        odo.update();
 
-        ppPos = odo.getPosition();
-        String data = String.format(Locale.US,
-                "{X: %.3f, Y: %.3f, H: %.3f, A: %d, V: %d, F: %d}",
-                ppPos.getX(DistanceUnit.INCH),
-                ppPos.getY(DistanceUnit.INCH),
-
-                normalizeAngleD(ppPos.getHeading(AngleUnit.DEGREES)-90),
-                ppPosAbsolute, ppPosThreshV, ppPosThreshS);
-        telemetry.addData("Position", data);
-
-        Log.d("Pinpoint", String.format("{X: %.3f, Y: %.3f, H: %.3f}",
-                ppPos.getX(DistanceUnit.INCH),
-                ppPos.getY(DistanceUnit.INCH),
-                normalizeAngleD(ppPos.getHeading(AngleUnit.DEGREES)-90)
-        ));
-        /*
-        ppVel = odo.getVelocity();
-        String velocity = String.format(Locale.US,
-                "{XVel: %.3f, YVel: %.3f, HVel: %.3f}",
-                ppVel.getX(DistanceUnit.MM),
-                ppVel.getY(DistanceUnit.MM),
-                ppVel.getHeading(AngleUnit.DEGREES));
-        telemetry.addData("Velocity", velocity);
-
-        telemetry.addData("Status", odo.getDeviceStatus());
-
-         */
-    }
-
-    // returns these in inches
     static double getMt2X() {
         return botpose_mt2.getPosition().x/.0254;
     }
@@ -501,9 +307,11 @@ class Common {
             // First, tell Limelight which way your robot is facing
             double robotYaw = ppPos.getHeading(AngleUnit.DEGREES);
 
+            /*
             if (!redAlliance) {
                 robotYaw = normalizeAngleD(robotYaw+180);
             }
+             */
 
             //imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES) - initialYaw + llYawOffset;
 
@@ -533,10 +341,13 @@ class Common {
                     if (mt2_valid) { // If we're close enough to ficucial to trust it:
                         botpose_mt2 = result.getBotpose_MT2();
                         if (botpose_mt2 != null) {
+                            /*
                             if (!redAlliance) { // Flip coordinates if on blue team
                                 Position flippedPose = new Position(botpose_mt2.getPosition().unit,-botpose_mt2.getPosition().x, -botpose_mt2.getPosition().y, botpose_mt2.getPosition().z, botpose_mt2.getPosition().acquisitionTime);
                                 botpose_mt2 = new Pose3D(flippedPose, botpose_mt2.getOrientation());
                             }
+
+                             */
 
                             telemetry.addData("MT2 Location:", "(" + botpose_mt2.getPosition().x/.0254 + "in, " + botpose_mt2.getPosition().y/.0254 + "in)");
 
@@ -644,19 +455,6 @@ class Common {
         }*/
 }
 
-    static void dumpBucket() {
-        liftMotor.setTargetPosition(2200);
-        ((DcMotorEx) liftMotor).setVelocity(3000);
-        liftPosition = 2200;
-        while (liftMotor.getCurrentPosition() < 500) ; // Wait for motor to get to 500
-        bucketServo.setPosition(BUCKET_UP);
-        while (liftMotor.getCurrentPosition() < 2150) ; // Wait for motor to get to 2100
-        sleep(300);
-        bucketServo.setPosition(BUCKET_DOWN);
-        sleep(100);
-        liftMotor.setTargetPosition(40);
-        liftPosition = 40;
-    }
 
     static double error_x, error_y, error_h, scalefactor;
 
@@ -677,21 +475,21 @@ class Common {
         double x = error_x / 20;
         double rx = -error_h / 30;
 
-            double rotX = y * Math.cos(-current_heading_r) - x * Math.sin(-current_heading_r);
-            double rotY = y * Math.sin(-current_heading_r) + x * Math.cos(-current_heading_r);
-            // Denominator is the largest motor power (absolute value) or 1
-            // This ensures all the powers maintain the same ratio,
-            // but only if at least one is out of the range [-1, 1]
-            double denominator = Math.max(Math.abs(rotY) + Math.abs(rotX) + Math.abs(rx), 1);
-            double frontLeftPower = (rotY + rotX + rx) / denominator;
-            double backLeftPower = (rotY - rotX + rx) / denominator;
-            double frontRightPower = (rotY - rotX - rx) / denominator;
-            double backRightPower = (rotY + rotX - rx) / denominator;
+        double rotX = y * Math.cos(-current_heading_r) - x * Math.sin(-current_heading_r);
+        double rotY = y * Math.sin(-current_heading_r) + x * Math.cos(-current_heading_r);
+        // Denominator is the largest motor power (absolute value) or 1
+        // This ensures all the powers maintain the same ratio,
+        // but only if at least one is out of the range [-1, 1]
+        double denominator = Math.max(Math.abs(rotY) + Math.abs(rotX) + Math.abs(rx), 1);
+        double frontLeftPower = (rotY + rotX + rx) / denominator;
+        double backLeftPower = (rotY - rotX + rx) / denominator;
+        double frontRightPower = (rotY - rotX - rx) / denominator;
+        double backRightPower = (rotY + rotX - rx) / denominator;
 
-            ((DcMotorEx) leftFrontDrive).setVelocity(scalefactor * frontLeftPower);
-            ((DcMotorEx) leftBackDrive).setVelocity(scalefactor * backLeftPower);
-            ((DcMotorEx) rightFrontDrive).setVelocity(scalefactor * frontRightPower);
-            ((DcMotorEx) rightBackDrive).setVelocity(scalefactor * backRightPower);
+        ((DcMotorEx) leftFrontDrive).setVelocity(scalefactor * frontLeftPower);
+        ((DcMotorEx) leftBackDrive).setVelocity(scalefactor * backLeftPower);
+        ((DcMotorEx) rightFrontDrive).setVelocity(scalefactor * frontRightPower);
+        ((DcMotorEx) rightBackDrive).setVelocity(scalefactor * backRightPower);
     }
 
     static void stopMotors() {
@@ -714,72 +512,5 @@ class Common {
         }
     }
 
-    static boolean debugMoves = false;
 
-    // Move to x/y/h with acceptable error of x_err/y_err, h_err.  Timeout after timeout seconds even if position
-    // not reached
-    // Return true if move was successful, false if timed out
-    // Speed is 0-100
-    static Boolean moveToXYHsv(double x_target, double y_target, double h_target, double speed, double x_err, double y_err, double h_err, double v_max, double timeout) {
-
-        targetPos = new Pose2D(DistanceUnit.INCH, x_target, y_target, AngleUnit.DEGREES, normalizeAngleD(h_target));
-        scalefactor = 3000.0 * speed / 100.0;
-        double startTime = getRuntime();
-
-        while (true){
-            telemetry.addData("Function", "moveToXYHs");
-
-            //updatePinpoint();  // Gets current position
-            checkLimelight();
-            updatePos();
-
-            updateMotors();
-            if (Math.abs(error_x)<x_err && Math.abs(error_y)<y_err && Math.abs(error_h)<h_err && robotVelocity()<v_max){
-                stopMotors();
-                break;
-            }
-
-            if ((getRuntime()-startTime)>timeout) {
-                stopMotors();
-                return false;
-            }
-
-            String data = String.format(Locale.US, "{X: %.3f, Y: %.3f, H: %.3f}", targetPos.getX(DistanceUnit.INCH), targetPos.getY(DistanceUnit.INCH), targetPos.getHeading(AngleUnit.DEGREES));
-            telemetry.addData("Target", data);
-
-            data = String.format(Locale.US, "{X: %.3f, Y: %.3f, H: %.3f}", error_x, error_y, error_h);
-            telemetry.addData("Error", data);
-            telemetry.update();
-        }
-
-        if ((gamepad1!=null) && debugMoves) {
-            while (!gamepad1.a) ;  // Wait for A to be pressed and then
-            while (gamepad1.a) ;    // released before continuing
-        }
-
-        return true;
-    }
-
-    static Boolean moveRelXYHsv(double x_rel, double y_rel, double h_rel, double speed, double x_err, double y_err, double h_err, double v_max, double timeout) {
-       return moveToXYHsv(ppPos.getX(DistanceUnit.INCH) + x_rel,
-                    ppPos.getY(DistanceUnit.INCH) + y_rel,
-                                        (ppPos.getHeading(AngleUnit.DEGREES)-90)+h_rel, speed, x_err, y_err, h_err, v_max, timeout);
-    }
-
-
-    // Takes in HSV array and returns b, r, y, or n for blue, red, yellow or none
-    static char hsvToColor(float[] hsv) {
-        double error_range = 20;
-        double b_h = 215;
-        double r_h = 25;
-        double y_h = 75;
-        char color;
-
-        if (Math.abs(hsv[0] -b_h) < error_range){   color = 'b';     }
-        else if (Math.abs(hsv[0] -r_h) < error_range){   color = 'r';     }
-        else if (Math.abs(hsv[0] -y_h) < error_range){   color = 'y';     }
-        else{ color = 'n';     }
-
-        return color;
-    }
 }
