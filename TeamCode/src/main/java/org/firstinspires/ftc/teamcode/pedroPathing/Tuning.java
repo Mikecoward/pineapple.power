@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.pedroPathing;
 
+import static org.firstinspires.ftc.teamcode.pedroPathing.ForwardTuner.DISTANCE;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Tuning.changes;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Tuning.drawOnlyCurrent;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Tuning.draw;
@@ -1177,6 +1178,8 @@ class Circle extends OpMode {
         }
     }
 }
+
+
 
 /**
  * This is the Drawing class. It handles the drawing of stuff on Panels Dashboard, like the robot.

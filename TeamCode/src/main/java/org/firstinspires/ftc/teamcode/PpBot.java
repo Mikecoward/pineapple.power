@@ -53,6 +53,9 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 
 import static org.firstinspires.ftc.teamcode.Common.limelight;
+import static org.firstinspires.ftc.teamcode.Common.normalizeAngleD;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Tuning.follower;
+
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.LLStatus;
@@ -62,6 +65,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
+import org.firstinspires.ftc.teamcode.goBack;
 
 import java.util.List;
 
@@ -114,9 +118,7 @@ start button:
 
 
 
-
 @TeleOp(name="AS-first robot-3", group="Robot")
-//@Disabled
 
 public class PpBot extends LinearOpMode {
     double counter = 0;
@@ -153,9 +155,9 @@ public class PpBot extends LinearOpMode {
     boolean specimenMode = false;
     boolean debounceSpecimen = false;
     IMU imu;
+    double shootingpower = 0;
 
     double DRIVE_TICKS_PER_SEC_MAX = 2800.0;
-
 
     @Override
     public void runOpMode() {
@@ -186,6 +188,15 @@ public class PpBot extends LinearOpMode {
 
 
         Common.telemetry = telemetry;
+        if (Common.initialPositionSet) {
+            Common.configRobot(hardwareMap, false);
+            telemetry.addLine("Taking position from previous run");
+
+        } else {
+            Common.configRobot(hardwareMap, true);
+            Common.setInitialPosition(-31.5, -63.5, 0);  // Right edge of robot aligned with second tile seam from right
+            telemetry.addLine("Setting position to -31.5, -63.5, 0");
+        }
 
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
 
@@ -203,18 +214,70 @@ public class PpBot extends LinearOpMode {
 
         /* Wait for the game driver to press play */
         waitForStart();
-
+/*
         Common.updatePinpoint();
-        /*
-        Common.zeroBothMotors();
-        */
 
+        Common.zeroBothMotors();
+        /*
+        /* Run until the driver presses stop */
+        boolean lastA = false;
+        float rightTrigger = 0;
+        float leftTrigger = 0;
+        boolean rightbumperpressed = false;
+        boolean leftbumperpressed = false;
+
+        double curAngle = 62; // current angle
+        //Common.Spinner.setPosition(curAngle/360);
+
+        //boolean hoodUp = false; // starts down
+        boolean kickerUp = false;
+        long lastKickTime = 0;
         Pose2D pos = Common.ppPos;
 
+        // At top of OpMode
+        boolean lastB = false;
+        boolean hoodUp = false;
+
+        double moveAmount = 24 * 360;      // degrees per press (2 rotations)
+        double incrementAmount = 60; // degrees per press (2 rotations)
+
+        String[] ballposition = {"na", "na", "na"};
+        int curballselected = 0;
+        double kP = 0.01;
+
+        // SPINNER STUFF
+        double spinnerError = 0;
+        double spinnerSpeed = 0;
+        double last_spinnerError = 0;
+        double targetRotation = 0;
 
 
+        double targetAngle = 0.0;
+
+        boolean intaking = false;
+        boolean shooting = false;
+        boolean ball_shoot_selected = false;
+        boolean kickerready = false;
+        String ballshoot = "na";
+
+
+        final double TURN_SPEED = 0.25; // Slower speed for alignment
+        final double TX_DEADBAND = 2.0; // Target is "aligned" if tx is within +/- 1.0 degrees
+
+
+        Pose2D ppPos = Common.odo.getPosition();
+
+
+
+        goBack goBack1 = new goBack(follower); // pass your TeleOp's follower
+
+        boolean goingBack = false;
 
         while (opModeIsActive()) {
+
+            ppPos = Common.odo.getPosition(); // ppPos now holds X, Y, heading
+            double currentX = ppPos.getX(DistanceUnit.INCH); // current X in inches
+            double currentY = ppPos.getY(DistanceUnit.INCH); // current Y in inches
 
 
             LLStatus status = limelight.getStatus();
@@ -233,9 +296,18 @@ public class PpBot extends LinearOpMode {
 
 
 
-            if (gamepad1.a) {
-                telemetry.addLine("Pressed A");
+            if (gamepad1.a && !goingBack) {
+                goBack1.setTargetToCurrent();
+                goingBack = true;
             }
+
+            if (goingBack) {
+                goBack1.update();
+                if (goBack1.arrived()) {
+                    goingBack = false; // finished going back
+                }
+            }
+
             if (gamepad1.b) {
                 telemetry.addLine("Pressed B");
             }
@@ -329,9 +401,9 @@ public class PpBot extends LinearOpMode {
         }
 
         //these codes just set the power for everything
-        ((DcMotorEx) Common.leftFrontDrive).setPower(frontLeftPower * DRIVE_TICKS_PER_SEC_MAX);
-        ((DcMotorEx) Common.leftBackDrive).setPower(backLeftPower * DRIVE_TICKS_PER_SEC_MAX);
-        ((DcMotorEx) Common.rightFrontDrive).setPower(frontRightPower * DRIVE_TICKS_PER_SEC_MAX);
-        ((DcMotorEx) Common.rightBackDrive).setPower(backRightPower * DRIVE_TICKS_PER_SEC_MAX);
+        ((DcMotorEx) Common.leftFrontDrive).setVelocity(frontLeftPower * DRIVE_TICKS_PER_SEC_MAX);
+        ((DcMotorEx) Common.leftBackDrive).setVelocity(backLeftPower * DRIVE_TICKS_PER_SEC_MAX);
+        ((DcMotorEx) Common.rightFrontDrive).setVelocity(frontRightPower * DRIVE_TICKS_PER_SEC_MAX);
+        ((DcMotorEx) Common.rightBackDrive).setVelocity(backRightPower * DRIVE_TICKS_PER_SEC_MAX);
     }
 }

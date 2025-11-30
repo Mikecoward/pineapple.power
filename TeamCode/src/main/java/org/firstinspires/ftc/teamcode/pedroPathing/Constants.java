@@ -10,12 +10,15 @@ import com.pedropathing.paths.PathConstraints;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.pedropathing.ftc.drivetrains.MecanumConstants;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
-            .mass(5);
+            .mass(5)
+            .forwardZeroPowerAcceleration(-41.86891034395695)
+            .lateralZeroPowerAcceleration(-75.57986529228371);
     public static MecanumConstants driveConstants = new MecanumConstants()
             .maxPower(1)
             .rightFrontMotorName("rightFront")
