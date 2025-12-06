@@ -91,6 +91,8 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import java.util.function.Supplier;
 
 
+
+
 class Common {
     static DcMotor  leftFrontDrive   = null;
     static DcMotor  rightFrontDrive  = null;
@@ -107,7 +109,7 @@ class Common {
     static int ppPosThreshV = 0;    // Velocity blocked
     static int ppPosThreshS = 0;    // Fiducial size blocked
 
-
+    static DcMotor intaking = null;
     static Telemetry telemetry = null;
     static Gamepad gamepad1 = null;
     static Gamepad gamepad2 = null;
@@ -123,6 +125,13 @@ class Common {
     static void configRobot(HardwareMap hardwareMap, boolean recalibrateIMU) {
 
         configurePinpoint(hardwareMap, recalibrateIMU);
+
+        intaking  = hardwareMap.dcMotor.get("intake");
+        intaking.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        intaking.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        intaking.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
+
 
         leftFrontDrive  = hardwareMap.dcMotor.get("leftFront");
         leftBackDrive   = hardwareMap.dcMotor.get("leftBack");

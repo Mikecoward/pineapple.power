@@ -1,5 +1,9 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.bylazar.telemetry.TelemetryManager;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
@@ -68,6 +72,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import org.firstinspires.ftc.teamcode.goBack;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /* Control Map
 
@@ -116,48 +121,53 @@ start button:
 
 */
 
-
+import com.bylazar.configurables.annotations.Configurable;
+import com.bylazar.telemetry.PanelsTelemetry;
+import com.bylazar.telemetry.TelemetryManager;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.BezierLine;
+import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.HeadingInterpolator;
+import com.pedropathing.paths.Path;
+import com.pedropathing.paths.PathChain;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @TeleOp(name="AS-first robot-3", group="Robot")
 
 public class PpBot extends LinearOpMode {
-    double counter = 0;
-    boolean isydone = false;
-    boolean isnewydone = false;
-    double time_in = 0;
-    double starting_time = 0;
-    boolean colorf_good;
-    boolean colorb_good;
 
-    boolean trial1 = false;
-    boolean toggle28 = false;
-
-    double deployDownPos = .765;
-    double cycletime = 0;
-    double looptime = 0;
-    double oldtime = 0;
-    boolean toggledispense = true;
-    double direction_shifter_1 = 1;
-
-
-
+    private Follower follower;
+    public static Pose startingPose;
+    private boolean automatedDrive;
+    private Supplier<PathChain> pathChain;
+    private TelemetryManager telemetryM;
     boolean toggle23 = false;
-    boolean toggle24 = false;
-    boolean toggle25 = false;
-    double counter24 = 0;
-    double counter25 = 0;
-    double counter23 = 0;
-    double counter26 = 0;
 
     boolean swapDirections = false;
     boolean debounceDirection = false;
 
-    boolean specimenMode = false;
-    boolean debounceSpecimen = false;
     IMU imu;
-    double shootingpower = 0;
 
     double DRIVE_TICKS_PER_SEC_MAX = 2800.0;
+
+    private void MyInit() {
+        follower = Constants.createFollower(hardwareMap);
+        follower.setStartingPose(startingPose == null ? new Pose() : startingPose);
+        follower.update();
+        telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
+        pathChain = () -> follower.pathBuilder() //Lazy Curve Generation
+                .addPath(new Path(new BezierLine(follower::getPose, new Pose(0, 0))))
+                .setHeadingInterpolation(HeadingInterpolator.linearFromPoint(follower::getHeading, Math.toRadians(0), 1.0))
+                .build();
+    }
+
+    private void MyStart() {
+        //The parameter controls whether the Follower should use break mode on the motors (using it is recommended).
+        //In order to use float mode, add .useBrakeModeInTeleOp(true); to your Drivetrain Constants in Constant.java (for Mecanum)
+        //If you don't pass anything in, it uses the default (false)
+        follower.startTeleopDrive();
+    }
 
     @Override
     public void runOpMode() {
@@ -209,6 +219,9 @@ public class PpBot extends LinearOpMode {
          */
         limelight.start();
 
+        MyInit();     // <-- Add this
+        MyStart();    // <-- Add this
+
         telemetry.addLine("Robot Ready.");
         telemetry.update();
 
@@ -241,24 +254,9 @@ public class PpBot extends LinearOpMode {
         double moveAmount = 24 * 360;      // degrees per press (2 rotations)
         double incrementAmount = 60; // degrees per press (2 rotations)
 
-        String[] ballposition = {"na", "na", "na"};
-        int curballselected = 0;
-        double kP = 0.01;
-
-        // SPINNER STUFF
-        double spinnerError = 0;
-        double spinnerSpeed = 0;
-        double last_spinnerError = 0;
-        double targetRotation = 0;
 
 
-        double targetAngle = 0.0;
 
-        boolean intaking = false;
-        boolean shooting = false;
-        boolean ball_shoot_selected = false;
-        boolean kickerready = false;
-        String ballshoot = "na";
 
 
         final double TURN_SPEED = 0.25; // Slower speed for alignment
@@ -275,6 +273,8 @@ public class PpBot extends LinearOpMode {
 
         while (opModeIsActive()) {
 
+            ((DcMotorEx) Common.intaking).setVelocity(1000);
+
             ppPos = Common.odo.getPosition(); // ppPos now holds X, Y, heading
             double currentX = ppPos.getX(DistanceUnit.INCH); // current X in inches
             double currentY = ppPos.getY(DistanceUnit.INCH); // current Y in inches
@@ -287,6 +287,7 @@ public class PpBot extends LinearOpMode {
             for (LLResultTypes.FiducialResult fr : fiducialResults) {
                 telemetry.addData("Fiducial", "ID: %d, Family: %s, X: %.2f, Y: %.2f", fr.getFiducialId(), fr.getFamily(), fr.getTargetXDegrees(), fr.getTargetYDegrees());
             }
+
             Common.updatePinpoint();
 
 
@@ -295,17 +296,19 @@ public class PpBot extends LinearOpMode {
             }
 
 
-
-            if (gamepad1.a && !goingBack) {
-                goBack1.setTargetToCurrent();
-                goingBack = true;
+            if (gamepad1.aWasPressed()) {
+                follower.followPath(pathChain.get());
+                automatedDrive = true;
+            }
+            //Stop automated following if the follower is done
+            if (automatedDrive && (gamepad1.bWasPressed() || !follower.isBusy())) {
+                follower.startTeleopDrive();
+                automatedDrive = false;
             }
 
+
             if (goingBack) {
-                goBack1.update();
-                if (goBack1.arrived()) {
-                    goingBack = false; // finished going back
-                }
+
             }
 
             if (gamepad1.b) {
