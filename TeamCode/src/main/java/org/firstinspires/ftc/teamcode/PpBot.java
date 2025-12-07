@@ -311,7 +311,7 @@ public class PpBot extends LinearOpMode {
                 automatedDrive = true;
             }
 
-            //Stop automated following if the follower is done
+            //.Stop automated following if the follower is done
             if (automatedDrive && (gamepad1.bWasPressed() || !follower.isBusy())) {
                 follower.startTeleopDrive();
                 automatedDrive = false;
