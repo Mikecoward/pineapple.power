@@ -56,8 +56,10 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 
+import static org.firstinspires.ftc.teamcode.Common.intaking;
 import static org.firstinspires.ftc.teamcode.Common.limelight;
 import static org.firstinspires.ftc.teamcode.Common.normalizeAngleD;
+import static org.firstinspires.ftc.teamcode.Common.radvance;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Tuning.follower;
 
 import com.qualcomm.hardware.limelightvision.LLResult;
@@ -233,26 +235,9 @@ public class PpBot extends LinearOpMode {
         Common.zeroBothMotors();
         /*
         /* Run until the driver presses stop */
-        boolean lastA = false;
-        float rightTrigger = 0;
-        float leftTrigger = 0;
-        boolean rightbumperpressed = false;
-        boolean leftbumperpressed = false;
 
-        double curAngle = 62; // current angle
-        //Common.Spinner.setPosition(curAngle/360);
 
-        //boolean hoodUp = false; // starts down
-        boolean kickerUp = false;
-        long lastKickTime = 0;
         Pose2D pos = Common.ppPos;
-
-        // At top of OpMode
-        boolean lastB = false;
-        boolean hoodUp = false;
-
-        double moveAmount = 24 * 360;      // degrees per press (2 rotations)
-        double incrementAmount = 60; // degrees per press (2 rotations)
 
 
 
@@ -266,20 +251,29 @@ public class PpBot extends LinearOpMode {
         Pose2D ppPos = Common.odo.getPosition();
 
 
+        boolean shooting = false;
 
-        goBack goBack1 = new goBack(follower); // pass your TeleOp's follower
+        int intakingspeed = 0;
+        int shootingspeed = 0;
 
-        boolean goingBack = false;
 
+        // DEBOUNCES
         while (opModeIsActive()) {
 
-            ((DcMotorEx) Common.intaking).setVelocity(1000);
+
 
             ppPos = Common.odo.getPosition(); // ppPos now holds X, Y, heading
             double currentX = ppPos.getX(DistanceUnit.INCH); // current X in inches
             double currentY = ppPos.getY(DistanceUnit.INCH); // current Y in inches
 
+            ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
+            ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
 
+            telemetry.addData("shooting motor velocity", ((DcMotorEx) Common.shoot).getVelocity());
+            telemetry.addData("intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
+
+            /*
+            LIMELIGHT CODE (NOT USING FOR ODOMETRY DRIFT)
             LLStatus status = limelight.getStatus();
             LLResult result = limelight.getLatestResult();
 
@@ -287,29 +281,54 @@ public class PpBot extends LinearOpMode {
             for (LLResultTypes.FiducialResult fr : fiducialResults) {
                 telemetry.addData("Fiducial", "ID: %d, Family: %s, X: %.2f, Y: %.2f", fr.getFiducialId(), fr.getFamily(), fr.getTargetXDegrees(), fr.getTargetYDegrees());
             }
+             */
 
             Common.updatePinpoint();
 
-
-            if (gamepad2.start) {
-                Common.zeroBothMotors();
+            if (gamepad1.left_bumper && !shooting) {
+                shooting = true;
             }
 
+            if (shooting = false) {
+                intakingspeed = 500;
+                shootingspeed = 1000;  // keep it at 1000 in case we need to speed it up soon
 
-            if (gamepad1.aWasPressed()) {
+                Common.radvance.setPosition(100);
+                Common.ladvance.setPosition(100);
+                Common.madvance.setPosition(100);
+
+            } else if (!automatedDrive){
+                intakingspeed = 0;
+                shootingspeed = 2000;
+
+                MyInit();
+
+                // Start follower in teleop mode (required before running)
+                MyStart();
+
+                // Now run the path
                 follower.followPath(pathChain.get());
                 automatedDrive = true;
             }
+
             //Stop automated following if the follower is done
             if (automatedDrive && (gamepad1.bWasPressed() || !follower.isBusy())) {
                 follower.startTeleopDrive();
                 automatedDrive = false;
+
+                Common.radvance.setPosition(0);
+                Common.ladvance.setPosition(0);
+                Common.madvance.setPosition(0);
+
+                intakingspeed = 500;
+                while (((DcMotorEx) Common.intaking).getVelocity() <= .9 * intakingspeed) {
+                    ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
+                }
+                // start the shooting because we are in the right spot
+                shooting = false;
+
             }
 
-
-            if (goingBack) {
-
-            }
 
             if (gamepad1.b) {
                 telemetry.addLine("Pressed B");

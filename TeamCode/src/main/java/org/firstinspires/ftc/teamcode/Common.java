@@ -110,10 +110,16 @@ class Common {
     static int ppPosThreshS = 0;    // Fiducial size blocked
 
     static DcMotor intaking = null;
+    static DcMotor shoot = null;
+
+
     static Telemetry telemetry = null;
     static Gamepad gamepad1 = null;
     static Gamepad gamepad2 = null;
 
+    static Servo radvance = null;
+    static Servo madvance = null;
+    static Servo ladvance = null;
 
     // Run motor slowly downwards until current gets too high, then decide that this must be the zero point.
     static void zeroBothMotors() {
@@ -126,11 +132,21 @@ class Common {
 
         configurePinpoint(hardwareMap, recalibrateIMU);
 
+        // servos
+        radvance = hardwareMap.servo.get("radvance");
+        madvance = hardwareMap.servo.get("radvance");
+        ladvance = hardwareMap.servo.get("radvance");
+
         intaking  = hardwareMap.dcMotor.get("intake");
         intaking.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         intaking.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         intaking.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
+        shoot  = hardwareMap.dcMotor.get("shoot");
+        shoot.setDirection(DcMotor.Direction.REVERSE);
+        shoot.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        shoot.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shoot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
 
         leftFrontDrive  = hardwareMap.dcMotor.get("leftFront");
