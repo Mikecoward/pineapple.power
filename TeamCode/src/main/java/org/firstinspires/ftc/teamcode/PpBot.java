@@ -71,7 +71,6 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
-import org.firstinspires.ftc.teamcode.goBack;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -156,11 +155,10 @@ public class PpBot extends LinearOpMode {
     private void MyInit() {
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(startingPose == null ? new Pose() : startingPose);
-        follower.update();
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
         pathChain = () -> follower.pathBuilder() //Lazy Curve Generation
                 .addPath(new Path(new BezierLine(follower::getPose, new Pose(0, 0))))
-                .setHeadingInterpolation(HeadingInterpolator.linearFromPoint(follower::getHeading, Math.toRadians(0), 1.0))
+                .setHeadingInterpolation(HeadingInterpolator.linearFromPoint(follower::getHeading, Math.toRadians(0), .1))
                 .build();
     }
 
@@ -221,8 +219,6 @@ public class PpBot extends LinearOpMode {
          */
         limelight.start();
 
-        MyInit();     // <-- Add this
-        MyStart();    // <-- Add this
 
         telemetry.addLine("Robot Ready.");
         telemetry.update();
@@ -242,7 +238,10 @@ public class PpBot extends LinearOpMode {
 
 
 
+        MyInit();
 
+        // Start follower in teleop mode (required before running)
+        MyStart();
 
         final double TURN_SPEED = 0.25; // Slower speed for alignment
         final double TX_DEADBAND = 2.0; // Target is "aligned" if tx is within +/- 1.0 degrees
@@ -256,11 +255,8 @@ public class PpBot extends LinearOpMode {
         int intakingspeed = 0;
         int shootingspeed = 0;
 
-
         // DEBOUNCES
         while (opModeIsActive()) {
-
-
 
             ppPos = Common.odo.getPosition(); // ppPos now holds X, Y, heading
             double currentX = ppPos.getX(DistanceUnit.INCH); // current X in inches
@@ -271,6 +267,10 @@ public class PpBot extends LinearOpMode {
 
             telemetry.addData("shooting motor velocity", ((DcMotorEx) Common.shoot).getVelocity());
             telemetry.addData("intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
+            telemetry.addData("shooting", shooting);
+            telemetry.addData("intaking speed", intakingspeed);
+            telemetry.addData("shooting speed", shootingspeed);
+            telemetry.addData("automated drive", automatedDrive);
 
             /*
             LIMELIGHT CODE (NOT USING FOR ODOMETRY DRIFT)
@@ -289,9 +289,9 @@ public class PpBot extends LinearOpMode {
                 shooting = true;
             }
 
-            if (shooting = false) {
+            if (shooting == false && !automatedDrive) {
                 intakingspeed = 500;
-                shootingspeed = 1000;  // keep it at 1000 in case we need to speed it up soon
+                shootingspeed = 500;  // keep it at 1000 in case we need to speed it up soon
 
                 Common.radvance.setPosition(100);
                 Common.ladvance.setPosition(100);
@@ -299,12 +299,9 @@ public class PpBot extends LinearOpMode {
 
             } else if (!automatedDrive){
                 intakingspeed = 0;
-                shootingspeed = 2000;
+                shootingspeed = 1300;
 
-                MyInit();
-
-                // Start follower in teleop mode (required before running)
-                MyStart();
+                telemetry.addLine("running path");
 
                 // Now run the path
                 follower.followPath(pathChain.get());
@@ -320,7 +317,7 @@ public class PpBot extends LinearOpMode {
                 Common.ladvance.setPosition(0);
                 Common.madvance.setPosition(0);
 
-                intakingspeed = 500;
+                intakingspeed = 1300;
                 while (((DcMotorEx) Common.intaking).getVelocity() <= .9 * intakingspeed) {
                     ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
                 }
@@ -339,12 +336,22 @@ public class PpBot extends LinearOpMode {
             if (gamepad1.y) {
                 telemetry.addLine("Pressed Y");
             }
+            if (gamepad1.left_bumper) {
+                telemetry.addLine("Pressed bumber left");
+            }
+            if (gamepad1.left_trigger > 0) {
+                telemetry.addData("Pressed trigger left", gamepad1.left_trigger);
+            }
 
             if (gamepad1.start) {
                 Common.setInitialPosition(0, 0, 0);
             }
 
-            handleJoystick();
+            if (automatedDrive) {
+                follower.update();
+            } else {
+                handleJoystick();
+            }
             telemetry.update();
         }
     }
