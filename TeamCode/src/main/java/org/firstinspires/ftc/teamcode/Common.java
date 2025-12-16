@@ -134,8 +134,10 @@ class Common {
 
         // servos
         radvance = hardwareMap.servo.get("radvance");
-        madvance = hardwareMap.servo.get("radvance");
-        ladvance = hardwareMap.servo.get("radvance");
+        madvance = hardwareMap.servo.get("madvance");
+        ladvance = hardwareMap.servo.get("ladvance");
+
+        ladvance.setDirection(Servo.Direction.REVERSE);
 
         intaking  = hardwareMap.dcMotor.get("intake");
         intaking.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -143,7 +145,7 @@ class Common {
         intaking.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         shoot  = hardwareMap.dcMotor.get("shoot");
-        shoot.setDirection(DcMotor.Direction.REVERSE);
+        shoot.setDirection(DcMotor.Direction.FORWARD);
         shoot.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shoot.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         shoot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
@@ -157,19 +159,19 @@ class Common {
         // making all of these set velocity
         leftFrontDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         leftFrontDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        leftFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        leftFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         leftBackDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         leftBackDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        leftBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        leftBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         rightFrontDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         rightFrontDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rightFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        rightFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         rightBackDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         rightBackDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rightBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        rightBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
 
         leftBackDrive.setDirection(DcMotor.Direction.REVERSE);

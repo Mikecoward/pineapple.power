@@ -69,9 +69,8 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
-import org.firstinspires.ftc.teamcode.goBack;
+
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -135,9 +134,12 @@ import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
-@TeleOp(name="AS-first robot-3", group="Robot")
+@TeleOp(name="AS-first robot-.2", group="Robot")
 
 public class PpBot extends LinearOpMode {
+
+    public static final boolean DRAW_PATHS = true;
+    public static final boolean DRAW_ROBOT = true;
 
     private Follower follower;
     public static Pose startingPose;
@@ -155,14 +157,34 @@ public class PpBot extends LinearOpMode {
 
     private void MyInit() {
         follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(startingPose == null ? new Pose() : startingPose);
-        follower.update();
+
+        // ✅ MATCH PEDRO TO ODOMETRY
+        Pose2D ppPos = Common.odo.getPosition();
+        Pose start = new Pose(
+                ppPos.getX(DistanceUnit.INCH),
+                ppPos.getY(DistanceUnit.INCH),
+                ppPos.getHeading(AngleUnit.RADIANS)
+        );
+        follower.setStartingPose(start);
+
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
-        pathChain = () -> follower.pathBuilder() //Lazy Curve Generation
-                .addPath(new Path(new BezierLine(follower::getPose, new Pose(0, 0))))
-                .setHeadingInterpolation(HeadingInterpolator.linearFromPoint(follower::getHeading, Math.toRadians(0), 1.0))
+
+        pathChain = () -> follower.pathBuilder()
+                .addPath(new Path(
+                        new BezierLine(follower::getPose, new Pose(60, -60))
+                ))
+                .setHeadingInterpolation(
+                        HeadingInterpolator.linearFromPoint(
+                                follower::getHeading,
+                                Math.toRadians(135),
+                                0.8
+                        )
+                )
                 .build();
     }
+
+
+
 
     private void MyStart() {
         //The parameter controls whether the Follower should use break mode on the motors (using it is recommended).
@@ -221,8 +243,6 @@ public class PpBot extends LinearOpMode {
          */
         limelight.start();
 
-        MyInit();     // <-- Add this
-        MyStart();    // <-- Add this
 
         telemetry.addLine("Robot Ready.");
         telemetry.update();
@@ -242,7 +262,10 @@ public class PpBot extends LinearOpMode {
 
 
 
+        MyInit();
 
+        // Start follower in teleop mode (required before running)
+        MyStart();
 
         final double TURN_SPEED = 0.25; // Slower speed for alignment
         final double TX_DEADBAND = 2.0; // Target is "aligned" if tx is within +/- 1.0 degrees
@@ -251,26 +274,36 @@ public class PpBot extends LinearOpMode {
         Pose2D ppPos = Common.odo.getPosition();
 
 
+        Common.madvance.setPosition(.5);
+        Common.ladvance.setPosition(.5);
+        Common.radvance.setPosition(.5);
+
         boolean shooting = false;
 
-        int intakingspeed = 0;
-        int shootingspeed = 0;
-
+        int intakingspeed = 500;
+        int shootingspeed = 100;
 
         // DEBOUNCES
+
+        double posm = .54;
+        double posl = .60;
         while (opModeIsActive()) {
-
-
 
             ppPos = Common.odo.getPosition(); // ppPos now holds X, Y, heading
             double currentX = ppPos.getX(DistanceUnit.INCH); // current X in inches
             double currentY = ppPos.getY(DistanceUnit.INCH); // current Y in inches
 
-            ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
-            ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
 
             telemetry.addData("shooting motor velocity", ((DcMotorEx) Common.shoot).getVelocity());
             telemetry.addData("intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
+            telemetry.addData("shooting", shooting);
+            telemetry.addData("intaking speed", intakingspeed);
+            telemetry.addData("shooting speed", shootingspeed);
+            telemetry.addData("automated drive", automatedDrive);
+            telemetry.addLine("POSITION");
+            telemetry.addData("position", ppPos);
+            telemetry.addData("currentX", currentX);
+            telemetry.addData("currentY", currentY);
 
             /*
             LIMELIGHT CODE (NOT USING FOR ODOMETRY DRIFT)
@@ -283,44 +316,79 @@ public class PpBot extends LinearOpMode {
             }
              */
 
-            Common.updatePinpoint();
+            //Common.updatePinpoint();
+
+            telemetry.addData("angle", Common.madvance.getPosition());
+            telemetry.addData("position", posm);
+            if (gamepad1.xWasPressed()) {
+                /*
+                Common.radvance.setPosition(0.25);
+                Common.ladvance.setPosition(0.25);
+                Common.madvance.setPosition(0.25);
+                */
+                posm = .75;
+                posl = .3;
+
+            }
+            if (gamepad1.yWasPressed()) {
+                /*
+                Common.radvance.setPosition(.5);
+                Common.ladvance.setPosition(.5);
+                Common.madvance.setPosition(-.75);
+
+                 */
+                posm = .63;
+                posl = .5;
+            }
+            if (gamepad1.bWasPressed()) {
+                Common.madvance.setPosition(posm);
+                //Common.radvance.setPosition(pos1);
+                Common.ladvance.setPosition(posl);
+
+            }
+
 
             if (gamepad1.left_bumper && !shooting) {
                 shooting = true;
             }
 
-            if (shooting = false) {
-                intakingspeed = 500;
-                shootingspeed = 1000;  // keep it at 1000 in case we need to speed it up soon
+            ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
+            ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
 
-                Common.radvance.setPosition(100);
-                Common.ladvance.setPosition(100);
-                Common.madvance.setPosition(100);
+
+
+            if (!shooting && !automatedDrive) {
+                intakingspeed = 500;
+                //shootingspeed = 500;  // keep it at 1000 in case we need to speed it up soon
+
+                /*
+                Common.radvance.setPosition(0);
+                Common.ladvance.setPosition(0);
+                Common.madvance.setPosition(0);
+
+                 */
 
             } else if (!automatedDrive){
                 intakingspeed = 0;
-                shootingspeed = 2000;
+                shootingspeed = 1200;
 
-                MyInit();
-
-                // Start follower in teleop mode (required before running)
-                MyStart();
+                telemetry.addLine("running path");
 
                 // Now run the path
-                follower.followPath(pathChain.get());
+                //follower.followPath(pathChain.get());
                 automatedDrive = true;
             }
 
             //.Stop automated following if the follower is done
             if (automatedDrive && (gamepad1.bWasPressed() || !follower.isBusy())) {
-                follower.startTeleopDrive();
+                //follower.startTeleopDrive();
                 automatedDrive = false;
 
-                Common.radvance.setPosition(0);
-                Common.ladvance.setPosition(0);
-                Common.madvance.setPosition(0);
+                Common.radvance.setPosition(.2);
+                Common.ladvance.setPosition(.2);
+                Common.madvance.setPosition(.2);
 
-                intakingspeed = 500;
+                intakingspeed = 1300;
                 while (((DcMotorEx) Common.intaking).getVelocity() <= .9 * intakingspeed) {
                     ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
                 }
@@ -328,6 +396,7 @@ public class PpBot extends LinearOpMode {
                 shooting = false;
 
             }
+
 
 
             if (gamepad1.b) {
@@ -339,13 +408,26 @@ public class PpBot extends LinearOpMode {
             if (gamepad1.y) {
                 telemetry.addLine("Pressed Y");
             }
+            if (gamepad1.left_bumper) {
+                telemetry.addLine("Pressed bumber left");
+            }
+            if (gamepad1.left_trigger > 0) {
+                telemetry.addData("Pressed trigger left", gamepad1.left_trigger);
+            }
 
             if (gamepad1.start) {
                 Common.setInitialPosition(0, 0, 0);
             }
 
-            handleJoystick();
+            follower.update();
+            if (automatedDrive) {
+                // print something
+            } else {
+                handleJoystick();
+            }
             telemetry.update();
+            telemetryM.update();
+
         }
     }
 
@@ -420,6 +502,18 @@ public class PpBot extends LinearOpMode {
             backLeftPower /= maxPower;
             frontRightPower/= maxPower;
             backRightPower/= maxPower;
+        }
+
+        if (Math.abs(stickX) < 0.05 &&
+                Math.abs(stickY) < 0.05 &&
+                Math.abs(stickR) < 0.05) {
+
+            ((DcMotorEx) Common.leftFrontDrive).setVelocity(0);
+            ((DcMotorEx) Common.leftBackDrive).setVelocity(0);
+            ((DcMotorEx) Common.rightFrontDrive).setVelocity(0);
+            ((DcMotorEx) Common.rightBackDrive).setVelocity(0);
+
+            return; // IMPORTANT: stop here
         }
 
         //these codes just set the power for everything
