@@ -121,7 +121,7 @@ class Common {
     static Servo madvance = null;
     static Servo ladvance = null;
 
-    // Run motor slowly downwards until current gets too high, then decide that this must be the zero point.
+    // 1Run motor slowly downwards until current gets too high, then decide that this must be the zero point.
     static void zeroBothMotors() {
         //. we don't need anything here yet
         // Only zero a motor if the mechanism has a known physical reference point that the motor can safely move into.

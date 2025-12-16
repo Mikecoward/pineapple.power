@@ -362,7 +362,7 @@ public class PpBot extends LinearOpMode {
                 //shootingspeed = 500;  // keep it at 1000 in case we need to speed it up soon
 
                 /*
-                Common.radvance.setPosition(0);
+                C1ommon.radvance.setPosition(0);
                 Common.ladvance.setPosition(0);
                 Common.madvance.setPosition(0);
 
