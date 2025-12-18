@@ -158,20 +158,15 @@ public class PpBot extends LinearOpMode {
     private void MyInit() {
         follower = Constants.createFollower(hardwareMap);
 
-        // ✅ MATCH PEDRO TO ODOMETRY
-        Pose2D ppPos = Common.odo.getPosition();
-        Pose start = new Pose(
-                ppPos.getX(DistanceUnit.INCH),
-                ppPos.getY(DistanceUnit.INCH),
-                ppPos.getHeading(AngleUnit.RADIANS)
-        );
+        // SET STARTING POSE MANUALLY (FIELD COORDINATES)
+        Pose start = new Pose(0, 0, 0);
         follower.setStartingPose(start);
 
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
 
         pathChain = () -> follower.pathBuilder()
                 .addPath(new Path(
-                        new BezierLine(follower::getPose, new Pose(60, -60))
+                        new BezierLine(follower::getPose, new Pose(64, -56))
                 ))
                 .setHeadingInterpolation(
                         HeadingInterpolator.linearFromPoint(
@@ -182,6 +177,7 @@ public class PpBot extends LinearOpMode {
                 )
                 .build();
     }
+
 
 
 
@@ -263,6 +259,8 @@ public class PpBot extends LinearOpMode {
 
 
         MyInit();
+        follower.startTeleopDrive(); // manual driving initially
+
 
         // Start follower in teleop mode (required before running)
         MyStart();
@@ -354,11 +352,12 @@ public class PpBot extends LinearOpMode {
 
             ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
             ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
+            ((DcMotorEx) Common.shoot2).setVelocity(shootingspeed);
 
 
 
             if (!shooting && !automatedDrive) {
-                intakingspeed = 500;
+                intakingspeed = 200;
                 //shootingspeed = 500;  // keep it at 1000 in case we need to speed it up soon
 
                 /*
@@ -375,7 +374,8 @@ public class PpBot extends LinearOpMode {
                 telemetry.addLine("running path");
 
                 // Now run the path
-                //follower.followPath(pathChain.get());
+
+                follower.followPath(pathChain.get());
                 automatedDrive = true;
             }
 

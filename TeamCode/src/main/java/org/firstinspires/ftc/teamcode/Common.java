@@ -112,6 +112,7 @@ class Common {
     static DcMotor intaking = null;
     static DcMotor shoot = null;
 
+    static DcMotor shoot2 = null;
 
     static Telemetry telemetry = null;
     static Gamepad gamepad1 = null;
@@ -145,11 +146,16 @@ class Common {
         intaking.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         shoot  = hardwareMap.dcMotor.get("shoot");
-        shoot.setDirection(DcMotor.Direction.FORWARD);
+        shoot2.setDirection(DcMotor.Direction.REVERSE);
         shoot.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shoot.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         shoot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
+        shoot2  = hardwareMap.dcMotor.get("shoot2");
+        shoot2.setDirection(DcMotor.Direction.FORWARD);
+        shoot2.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        shoot2.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shoot2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         leftFrontDrive  = hardwareMap.dcMotor.get("leftFront");
         leftBackDrive   = hardwareMap.dcMotor.get("leftBack");
@@ -523,7 +529,7 @@ class Common {
         double frontLeftPower = (rotY + rotX + rx) / denominator;
         double backLeftPower = (rotY - rotX + rx) / denominator;
         double frontRightPower = (rotY - rotX - rx) / denominator;
-        double backRightPower = (rotY + rotX - rx) / denominator;
+        double backRightPower = (rotY + rotX -   rx) / denominator;
 
         ((DcMotorEx) leftFrontDrive).setVelocity(scalefactor * frontLeftPower);
         ((DcMotorEx) leftBackDrive).setVelocity(scalefactor * backLeftPower);
