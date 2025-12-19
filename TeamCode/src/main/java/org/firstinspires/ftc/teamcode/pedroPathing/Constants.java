@@ -35,7 +35,7 @@ public class Constants {
 
 
     public static PinpointConstants localizerConstants = new PinpointConstants()
-            .forwardPodY(3)
+            .forwardPodY(2)
             .strafePodX(1.5)
             .distanceUnit(DistanceUnit.INCH)
             .hardwareMapName("odo")

@@ -146,13 +146,13 @@ class Common {
         intaking.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         shoot  = hardwareMap.dcMotor.get("shoot");
-        shoot2.setDirection(DcMotor.Direction.REVERSE);
+        shoot.setDirection(DcMotor.Direction.FORWARD);
         shoot.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shoot.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         shoot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         shoot2  = hardwareMap.dcMotor.get("shoot2");
-        shoot2.setDirection(DcMotor.Direction.FORWARD);
+        shoot2.setDirection(DcMotor.Direction.REVERSE);
         shoot2.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shoot2.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         shoot2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);

@@ -159,20 +159,20 @@ public class PpBot extends LinearOpMode {
         follower = Constants.createFollower(hardwareMap);
 
         // SET STARTING POSE MANUALLY (FIELD COORDINATES)
-        Pose start = new Pose(0, 0, 0);
+        Pose start = new Pose(10, -10.5, 0);
         follower.setStartingPose(start);
 
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
 
         pathChain = () -> follower.pathBuilder()
                 .addPath(new Path(
-                        new BezierLine(follower::getPose, new Pose(64, -56))
+                        new BezierLine(follower::getPose, new Pose(81, -81))
                 ))
                 .setHeadingInterpolation(
                         HeadingInterpolator.linearFromPoint(
                                 follower::getHeading,
                                 Math.toRadians(135),
-                                0.8
+                                0.1
                         )
                 )
                 .build();
@@ -272,14 +272,16 @@ public class PpBot extends LinearOpMode {
         Pose2D ppPos = Common.odo.getPosition();
 
 
-        Common.madvance.setPosition(.5);
-        Common.ladvance.setPosition(.5);
-        Common.radvance.setPosition(.5);
+        //Common.madvance.setPosition(.5);
+        //Common.ladvance.setPosition(.5);
+        //Common.radvance.setPosition(.5);
 
         boolean shooting = false;
 
         int intakingspeed = 500;
-        int shootingspeed = 100;
+        int shootingspeed = 250;
+
+        boolean rbumppressed = false;
 
         // DEBOUNCES
 
@@ -293,6 +295,8 @@ public class PpBot extends LinearOpMode {
 
 
             telemetry.addData("shooting motor velocity", ((DcMotorEx) Common.shoot).getVelocity());
+            telemetry.addData("shooting2 motor velocity", ((DcMotorEx) Common.shoot2).getVelocity());
+
             telemetry.addData("intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
             telemetry.addData("shooting", shooting);
             telemetry.addData("intaking speed", intakingspeed);
@@ -346,20 +350,19 @@ public class PpBot extends LinearOpMode {
             }
 
 
-            if (gamepad1.left_bumper && !shooting) {
-                shooting = true;
-            }
+
 
             ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
             ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
             ((DcMotorEx) Common.shoot2).setVelocity(shootingspeed);
-
+            if (gamepad1.left_bumper && !shooting) {
+                shooting = true;
+            }
 
 
             if (!shooting && !automatedDrive) {
                 intakingspeed = 200;
-                //shootingspeed = 500;  // keep it at 1000 in case we need to speed it up soon
-
+                //noshootingspeed set
                 /*
                 C1ommon.radvance.setPosition(0);
                 Common.ladvance.setPosition(0);
@@ -369,7 +372,7 @@ public class PpBot extends LinearOpMode {
 
             } else if (!automatedDrive){
                 intakingspeed = 0;
-                shootingspeed = 1200;
+                shootingspeed = 1250;
 
                 telemetry.addLine("running path");
 
@@ -380,23 +383,31 @@ public class PpBot extends LinearOpMode {
             }
 
             //.Stop automated following if the follower is done
-            if (automatedDrive && (gamepad1.bWasPressed() || !follower.isBusy())) {
+            rbumppressed = gamepad1.right_bumper;
+            if (automatedDrive && (rbumppressed || !follower.isBusy())) {
                 //follower.startTeleopDrive();
-                automatedDrive = false;
+                telemetry.addLine("STOPPED THE PATH CUH");
+                if (rbumppressed) {
+                    follower.startTeleopDrive();
+                    automatedDrive = false;
+                    shootingspeed = 250;
 
-                Common.radvance.setPosition(.2);
-                Common.ladvance.setPosition(.2);
-                Common.madvance.setPosition(.2);
-
-                intakingspeed = 1300;
-                while (((DcMotorEx) Common.intaking).getVelocity() <= .9 * intakingspeed) {
-                    ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
+                } else {
+                    automatedDrive = false;
+                    intakingspeed = 1300;
+                    while (((DcMotorEx) Common.intaking).getVelocity() <= .9 * intakingspeed) {
+                        ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
+                    }
+                    // start the shooting because we are in the right spot
                 }
-                // start the shooting because we are in the right spot
                 shooting = false;
 
+                //Common.radvance.setPosition(.2);
+                //Common.ladvance.setPosition(.2);
+                //Common.madvance.setPosition(.2);
+            } else if (!shooting && rbumppressed) {
+                shootingspeed = 250;
             }
-
 
 
             if (gamepad1.b) {
