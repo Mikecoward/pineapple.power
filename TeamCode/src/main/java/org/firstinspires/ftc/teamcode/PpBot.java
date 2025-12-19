@@ -158,7 +158,7 @@ public class PpBot extends LinearOpMode {
     private void MyInit() {
         follower = Constants.createFollower(hardwareMap);
 
-        // SET STARTING POSE MANUALLY (FIELD COORDINATES)
+        //1 SET STARTING POSE MANUALLY (FIELD COORDINATES)
         Pose start = new Pose(10, -10.5, 0);
         follower.setStartingPose(start);
 

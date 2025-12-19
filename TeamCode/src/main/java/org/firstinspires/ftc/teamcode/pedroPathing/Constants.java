@@ -14,7 +14,7 @@ import com.pedropathing.ftc.drivetrains.MecanumConstants;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
-//1
+
 public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
             .mass(5)
