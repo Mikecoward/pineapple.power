@@ -159,14 +159,14 @@ public class PpBot extends LinearOpMode {
         follower = Constants.createFollower(hardwareMap);
 
         //1 SET STARTING POSE MANUALLY (FIELD COORDINATES)
-        Pose start = new Pose(10, -10.5, 0);
+        Pose start = new Pose(9, 135, 0);
         follower.setStartingPose(start);
 
         telemetryM = PanelsTelemetry.INSTANCE.getTelemetry();
 
         pathChain = () -> follower.pathBuilder()
                 .addPath(new Path(
-                        new BezierLine(follower::getPose, new Pose(81, -81))
+                        new BezierLine(follower::getPose, new Pose(72, 72))
                 ))
                 .setHeadingInterpolation(
                         HeadingInterpolator.linearFromPoint(
@@ -361,7 +361,7 @@ public class PpBot extends LinearOpMode {
 
 
             if (!shooting && !automatedDrive) {
-                intakingspeed = 200;
+                intakingspeed = 900;
                 //noshootingspeed set
                 /*
                 C1ommon.radvance.setPosition(0);
