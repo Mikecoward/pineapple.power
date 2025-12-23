@@ -243,13 +243,68 @@ public abstract class PineapplesBOT extends OpMode {
         limelight.start();
 
 
+
     }
 
     public void start() {
         follower.startTeleopDrive();
     }
-    private static final double POSITION_TOLERANCE_INCHES = 5.0; // Only update if within 5 inches
-    private static final double HEADING_TOLERANCE_RAD = Math.toRadians(10); // Only update if within 10 degrees
+     double POSITION_TOLERANCE_INCHES = 5.0; // Only update if within 5 inches
+     double HEADING_TOLERANCE_RAD = Math.toRadians(10); // Only update if within 10 degrees
+
+    double intakingspeed = 700;
+    double shootingspeed = 0;
+    boolean apath = false;
+
+    // position in triangle checking:
+    boolean pointInTriangle(
+            double px, double py,
+            double ax, double ay,
+            double bx, double by,
+            double cx, double cy
+    ) {
+        double v0x = cx - ax;
+        double v0y = cy - ay;
+        double v1x = bx - ax;
+        double v1y = by - ay;
+        double v2x = px - ax;
+        double v2y = py - ay;
+
+        double dot00 = v0x * v0x + v0y * v0y;
+        double dot01 = v0x * v1x + v0y * v1y;
+        double dot02 = v0x * v2x + v0y * v2y;
+        double dot11 = v1x * v1x + v1y * v1y;
+        double dot12 = v1x * v2x + v1y * v2y;
+
+        double invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01);
+        double u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+        double v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+
+        return (u >= 0) && (v >= 0) && (u + v <= 1);
+    }
+
+    boolean inLaunchZone() {
+        Pose p = follower.getPose();
+        double x = p.getX();
+        double y = p.getY();
+
+        boolean inClose = pointInTriangle(
+                x, y,
+                0, 144,
+                72, 72,
+                144, 144
+        );
+
+        boolean inFar = pointInTriangle(
+                x, y,
+                48, 0,
+                72, 24,
+                96, 0
+        );
+
+        return inClose || inFar;
+    }
+
 
     @Override
     public void loop() {
@@ -259,24 +314,37 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.clear();
 
         if (!automatedDrive) {
-            double targetY = gamepad1.right_stick_y * Math.pow(Math.abs(gamepad1.right_stick_y), 1.2);
-            double targetX = gamepad1.right_stick_x * Math.pow(Math.abs(gamepad1.right_stick_x), 1.2);
-            double targetTurn = gamepad1.left_stick_x * Math.pow(Math.abs(gamepad1.left_stick_x), 1.5);
 
-            cmdY += clamp(targetY - cmdY, -JOYSTICK_SLEW, JOYSTICK_SLEW);
-            cmdX += clamp(targetX - cmdX, -JOYSTICK_SLEW, JOYSTICK_SLEW);
-            cmdTurn += clamp(targetTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
+            intakingspeed = 1200;
+            shootingspeed = 50;
 
+            if (Common.radvance.getPosition() != .56) {
+                Common.radvance.setPosition(.56);
+            }
+            if (Common.ladvance.getPosition() != .56) {
+                Common.ladvance.setPosition(.56);
+            }
+            if (Common.madvance.getPosition() != .56) {
+                Common.madvance.setPosition(.56);
+            }
+
+            // ---------- send ROBOT-CENTRIC to drivetrain ----------
             double mult = slowMode ? slowModeMultiplier : 1.0;
-            follower.setTeleOpDrive(
-                    -cmdY * mult,
-                    -cmdX * mult,
-                    -cmdTurn * mult,
-                    true
+
+            if (!slowMode) follower.setTeleOpDrive(
+                    -gamepad1.left_stick_y,
+                    -gamepad1.left_stick_x,
+                    -gamepad1.right_stick_x,
+                    false // Robot Centric
             );
+
         }
 
+
+
         if (gamepad1.aWasPressed() && !automatedDrive) {
+            intakingspeed = 1300;
+            shootingspeed = 0;
             follower.followPath(pathArray[AutoTarget.shooting1.value].get());
             automatedDrive = true;
             currentAutoTarget = AutoTarget.shooting1;
@@ -288,6 +356,47 @@ public abstract class PineapplesBOT extends OpMode {
             currentAutoTarget = AutoTarget.NONE;
         }
 
+        if (gamepad1.bWasPressed() && !automatedDrive) {
+            follower.followPath(pathArray[AutoTarget.start.value].get());
+            automatedDrive = true;
+            currentAutoTarget = AutoTarget.start;
+        }
+
+        if (!gamepad1.b && automatedDrive && currentAutoTarget == AutoTarget.start) {
+            follower.startTeleopDrive();
+            automatedDrive = false;
+            currentAutoTarget = AutoTarget.NONE;
+        }
+        //add in launch zone later
+        if ( gamepad1.left_bumper) {
+
+            intakingspeed = 1300;
+            shootingspeed = 1350;
+            while (((DcMotorEx) Common.intaking).getVelocity() <= .9 * intakingspeed ||
+                    ((DcMotorEx) Common.shoot).getVelocity() <= .9 * shootingspeed ||
+                    ((DcMotorEx) Common.shoot2).getVelocity() >= -.9 * shootingspeed
+                    ) {
+
+                ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
+                ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
+                ((DcMotorEx) Common.shoot2).setVelocity(-shootingspeed);
+            }
+            Common.ladvance.setPosition(.71);
+            sleep(500);
+            Common.madvance.setPosition(.71);
+            sleep(500);
+            Common.radvance.setPosition(.71);
+            sleep(2000);
+
+        }
+
+        //motors
+        ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
+        ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
+        ((DcMotorEx) Common.shoot2).setVelocity(-shootingspeed);
+
+
+
         Pose pose = follower.getPose();
 
         telemetry.addLine("---- Pose ----");
@@ -298,6 +407,19 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.addLine("---- pedropathing ----");
         telemetry.addData("automated?", automatedDrive);
         telemetry.addData("currentAutoTarget", currentAutoTarget);
+
+        telemetry.addLine("---- shooting ----");
+        telemetry.addLine("------ motors ----");
+
+        telemetry.addData("-- shooting motor velocity", ((DcMotorEx) Common.shoot).getVelocity());
+        telemetry.addData("-- shooting2 motor velocity", ((DcMotorEx) Common.shoot2).getVelocity());
+        telemetry.addData("-- intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
+        telemetry.addData("-- possible to shoot?", inLaunchZone());
+
+        telemetry.addLine("------ servos ----");
+        telemetry.addData("radvance position", Common.radvance.getPosition());
+        telemetry.addData("madvance position", Common.radvance.getPosition());
+        telemetry.addData("ladvance position", Common.radvance.getPosition());
 
         printLimelightData();
 
