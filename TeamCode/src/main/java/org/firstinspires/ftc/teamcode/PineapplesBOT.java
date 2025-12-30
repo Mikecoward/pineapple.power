@@ -170,7 +170,7 @@ public abstract class PineapplesBOT extends OpMode {
     //29.8 - 104 135
     protected static final Pose[] poseArrayBlue = {
             new Pose(6.86, 135.11, Math.toRadians(0)), // 0 Blue Start Pose
-            new Pose(72, 72, Math.toRadians(135)), // 1 Blue shoot1 Pose
+            new Pose(78, 61, Math.toRadians(135)), // 1 Blue shoot1 Pose
             new Pose(9, 60, Math.toRadians(175)),// 2 Blue shoot2 Pose
             new Pose(120, 120, Math.toRadians(-180)),// 3 Blue Pickup Pose
             new Pose(30, 90, Math.toRadians(-180)) //
@@ -257,62 +257,46 @@ public abstract class PineapplesBOT extends OpMode {
 
     double intakingspeed = 700;
     double shootingspeed = 0;
-    boolean apath = false;
 
-    // position in triangle checking:
-    boolean pointInTriangle(
-            double px, double py,
-            double ax, double ay,
-            double bx, double by,
-            double cx, double cy
-    ) {
-        double v0x = cx - ax;
-        double v0y = cy - ay;
-        double v1x = bx - ax;
-        double v1y = by - ay;
-        double v2x = px - ax;
-        double v2y = py - ay;
+    static final double TX_TOL = 1.0;                 // degrees
+    static final double DEG_TO_RAD = Math.PI / 180.0;
+    static final double TURN_GAIN = 0.6;              // smaller = slower
 
-        double dot00 = v0x * v0x + v0y * v0y;
-        double dot01 = v0x * v1x + v0y * v1y;
-        double dot02 = v0x * v2x + v0y * v2y;
-        double dot11 = v1x * v1x + v1y * v1y;
-        double dot12 = v1x * v2x + v1y * v2y;
+    public void slowTurnToAprilTag() {
+        LLResult result = limelight.getLatestResult();
+        if (!result.isValid()) return;
 
-        double invDenom = 1.0 / (dot00 * dot11 - dot01 * dot01);
-        double u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-        double v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+        double tx = limelight.getLatestResult().getTx();
+        if (Math.abs(tx) < TX_TOL) return;
 
-        return (u >= 0) && (v >= 0) && (u + v <= 1);
-    }
-
-    boolean inLaunchZone() {
         Pose p = follower.getPose();
-        double x = p.getX();
-        double y = p.getY();
 
-        boolean inClose = pointInTriangle(
-                x, y,
-                0, 144,
-                72, 72,
-                144, 144
+        double deltaHeading = -tx * DEG_TO_RAD * TURN_GAIN;
+
+        Pose target = new Pose(
+                p.getX(),
+                p.getY(),
+                p.getHeading() + deltaHeading
         );
 
-        boolean inFar = pointInTriangle(
-                x, y,
-                48, 0,
-                72, 24,
-                96, 0
+        follower.followPath(
+                follower.pathBuilder()
+                        .addPath(new BezierLine(p, target))
+                        .setLinearHeadingInterpolation(
+                                p.getHeading(),
+                                target.getHeading(),
+                                1.0
+                        )
+                        .build(),
+                true
         );
-
-        return inClose || inFar;
     }
+
 
 
     @Override
     public void loop() {
         follower.update();
-        //updatePoseFromLL();  // now continuously updating
 
         telemetry.clear();
 
@@ -346,6 +330,12 @@ public abstract class PineapplesBOT extends OpMode {
                     -cmdTurn * mult,
                     true // Robot centric (as you had)
             );
+        }
+
+        if (gamepad1.dpad_down && !automatedDrive) {
+            telemetry.addLine("LIMELIGHTTT");
+            follower.startTeleopDrive();
+            snapPoseToLimelight();
         }
 
 
@@ -387,8 +377,15 @@ public abstract class PineapplesBOT extends OpMode {
             automatedDrive = false;
             currentAutoTarget = AutoTarget.NONE;
         }
+
+        if (gamepad1.right_bumper) {
+            slowTurnToAprilTag();
+            return; // don't run auto paths
+        }
         //add in launch zone later
         if ( gamepad1.left_bumper) {
+
+
             Pose p = follower.getPose();
             int distshooting1, distshooting2;
             distshooting2 = (int) Math.round(Math.sqrt(Math.pow(p.getX() - 9, 2) + Math.pow(p.getY() - 60, 2)));
@@ -404,10 +401,10 @@ public abstract class PineapplesBOT extends OpMode {
             long a = System.currentTimeMillis();
 
             while (((DcMotorEx) Common.intaking).getVelocity() <= .90 * intakingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() <= .80 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() >= .90 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() >= -.80 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() <= -.90 * shootingspeed ||
+                    ((DcMotorEx) Common.shoot).getVelocity() <= .83 * shootingspeed ||
+                    ((DcMotorEx) Common.shoot).getVelocity() >= .93 * shootingspeed ||
+                    ((DcMotorEx) Common.shoot2).getVelocity() >= -.83 * shootingspeed ||
+                    ((DcMotorEx) Common.shoot2).getVelocity() <= -.93 * shootingspeed ||
                     System.currentTimeMillis() - a <= 2000) {
 
                 telemetry.clear();
@@ -416,18 +413,18 @@ public abstract class PineapplesBOT extends OpMode {
                 telemetry.addData("-- intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
                 telemetry.update();
                 ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
-                ((DcMotorEx) Common.shoot).setVelocity(.85 * shootingspeed);
-                ((DcMotorEx) Common.shoot2).setVelocity(.85 * -shootingspeed);
+                ((DcMotorEx) Common.shoot).setVelocity(.88 * shootingspeed);
+                ((DcMotorEx) Common.shoot2).setVelocity(.88 * -shootingspeed);
             }
 
             Common.ladvance.setPosition(.71);
             a = System.currentTimeMillis();
             while (((DcMotorEx) Common.intaking).getVelocity() <= .90 * intakingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() <= .80 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() >= .90 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() >= -.80 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() <= -.90 * shootingspeed ||
-                    System.currentTimeMillis() - a <= 2000) {
+                    ((DcMotorEx) Common.shoot).getVelocity() <= .77 * shootingspeed ||
+                    ((DcMotorEx) Common.shoot).getVelocity() >= .87 * shootingspeed ||
+                    ((DcMotorEx) Common.shoot2).getVelocity() >= -.77 * shootingspeed ||
+                    ((DcMotorEx) Common.shoot2).getVelocity() <= -.87 * shootingspeed ||
+                    System.currentTimeMillis() - a <= 1500) {
 
                 telemetry.clear();
                 telemetry.addData("-- shooting motor velocity", ((DcMotorEx) Common.shoot).getVelocity());
@@ -435,18 +432,18 @@ public abstract class PineapplesBOT extends OpMode {
                 telemetry.addData("-- intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
                 telemetry.update();
                 ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
-                ((DcMotorEx) Common.shoot).setVelocity(.85 * shootingspeed);
-                ((DcMotorEx) Common.shoot2).setVelocity(.85 * -shootingspeed);
+                ((DcMotorEx) Common.shoot).setVelocity(.82 * shootingspeed);
+                ((DcMotorEx) Common.shoot2).setVelocity(.82 * -shootingspeed);
             }
             Common.radvance.setPosition(.71);
 
             a = System.currentTimeMillis();
             while (((DcMotorEx) Common.intaking).getVelocity() <= .90 * intakingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() <= .95 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() >= 1.05 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() >= -.95 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() <= -1.05 * shootingspeed ||
-                    System.currentTimeMillis() - a <= 2000) {
+                    ((DcMotorEx) Common.shoot).getVelocity() <= .94 * shootingspeed ||
+                    ((DcMotorEx) Common.shoot).getVelocity() >= 1.00 * shootingspeed ||
+                    ((DcMotorEx) Common.shoot2).getVelocity() >= -.94 * shootingspeed ||
+                    ((DcMotorEx) Common.shoot2).getVelocity() <= -1.00 * shootingspeed ||
+                    System.currentTimeMillis() - a <= 1500) {
 
                 telemetry.clear();
                 telemetry.addData("-- shooting motor velocity", ((DcMotorEx) Common.shoot).getVelocity());
@@ -454,8 +451,8 @@ public abstract class PineapplesBOT extends OpMode {
                 telemetry.addData("-- intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
                 telemetry.update();
                 ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
-                ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
-                ((DcMotorEx) Common.shoot2).setVelocity(-shootingspeed);
+                ((DcMotorEx) Common.shoot).setVelocity(.97 * shootingspeed);
+                ((DcMotorEx) Common.shoot2).setVelocity(-.97 * shootingspeed);
             }
             Common.madvance.setPosition(.718);
             a = System.currentTimeMillis();
@@ -464,7 +461,7 @@ public abstract class PineapplesBOT extends OpMode {
                     ((DcMotorEx) Common.shoot).getVelocity() >= 1.05 * shootingspeed ||
                     ((DcMotorEx) Common.shoot2).getVelocity() >= -.95 * shootingspeed ||
                     ((DcMotorEx) Common.shoot2).getVelocity() <= -1.05 * shootingspeed ||
-                    System.currentTimeMillis() - a <= 4000) {
+                    System.currentTimeMillis() - a <= 1500) {
 
                 ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
                 ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
@@ -496,53 +493,18 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.addData("-- shooting motor velocity", ((DcMotorEx) Common.shoot).getVelocity());
         telemetry.addData("-- shooting2 motor velocity", ((DcMotorEx) Common.shoot2).getVelocity());
         telemetry.addData("-- intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
-        telemetry.addData("-- possible to shoot?", inLaunchZone());
 
         telemetry.addLine("------ servos ----");
         telemetry.addData("radvance position", Common.radvance.getPosition());
         telemetry.addData("madvance position", Common.radvance.getPosition());
         telemetry.addData("ladvance position", Common.radvance.getPosition());
 
-        printLimelightData();
-        telemetry.addData("LL connected", limelight.isConnected());
-        telemetry.addData("LL running", limelight.isRunning());
-        telemetry.addData("LL ms since update", limelight.getTimeSinceLastUpdate());
-        LLResult r = limelight.getLatestResult();
-        telemetry.addData("LL result valid", r != null && r.isValid());
-        if (r != null) telemetry.addData("LL staleness(ms)", r.getStaleness());
 
         telemetry.update();
 
 
     }
-    protected Pose getRawLimelightPose() {
-        LLResult result = limelight.getLatestResult();
-        if (result == null || !result.isValid()) return null;
 
-        Pose3D llpose = result.getBotpose();
-        if (llpose == null) return null;
-
-        // Convert meters to inches without any offsets
-        double xInches = DistanceUnit.METER.toInches(llpose.getPosition().x);
-        double yInches = DistanceUnit.METER.toInches(llpose.getPosition().y);
-
-        YawPitchRollAngles ypr = llpose.getOrientation();
-        double headingRad = ypr.getYaw(AngleUnit.RADIANS); // raw yaw in radians
-
-        return new Pose(xInches, yInches, headingRad);
-    }
-
-    protected void printLimelightData() {
-        Pose llPose = getRawLimelightPose();
-        if (llPose != null) {
-            telemetry.addLine("=== Limelight Raw Data ===");
-            telemetry.addData("X (in)", "%.2f", llPose.getX());
-            telemetry.addData("Y (in)", "%.2f", llPose.getY());
-            telemetry.addData("Heading (deg)", "%.1f", Math.toDegrees(llPose.getHeading()));
-        } else {
-            telemetry.addLine("Limelight: no valid data");
-        }
-    }
 
 
     protected Pose getRobotPoseFromCamera() {
@@ -562,6 +524,37 @@ public abstract class PineapplesBOT extends OpMode {
         double headingRad = AngleUnit.normalizeRadians(ypr.getYaw(AngleUnit.RADIANS) - Math.toRadians(90));
 
         return new Pose(xInches, yInches, headingRad);
+    }
+
+    private void snapPoseToLimelight() {
+        Pose llPose = getRobotPoseFromCamera();
+        if (llPose == null) {
+            telemetry.addLine("LL: no valid pose (snap skipped)");
+            return;
+        }
+
+        Pose cur = follower.getPose();
+
+        double dx = llPose.getX() - cur.getX();
+        double dy = llPose.getY() - cur.getY();
+        double dtheta = AngleUnit.normalizeRadians(llPose.getHeading() - cur.getHeading());
+
+        // Optional safety gates (recommended)
+        /*
+        if (Math.hypot(dx, dy) > POSITION_TOLERANCE_INCHES) {
+            telemetry.addData("LL snap rejected (pos err)", "%.1f in", Math.hypot(dx, dy));
+            return;
+        }
+        if (Math.abs(dtheta) > HEADING_TOLERANCE_RAD) {
+            telemetry.addData("LL snap rejected (head err)", "%.1f deg", Math.toDegrees(dtheta));
+            return;
+        }
+
+         */
+
+        follower.setPose(llPose);
+        telemetry.addData("LL snapped pose", "x=%.1f y=%.1f h=%.1f",
+                llPose.getX(), llPose.getY(), Math.toDegrees(llPose.getHeading()));
     }
 
     protected void updatePoseFromLL() {
