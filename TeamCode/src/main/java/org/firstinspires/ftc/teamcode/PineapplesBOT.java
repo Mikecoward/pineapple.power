@@ -140,7 +140,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 public abstract class PineapplesBOT extends OpMode {
     public enum Alliance { BLUE, RED }
 
-    // ---- override in subclasses ----
+    //1 ---- override in subclasses ----
     protected abstract Alliance getAlliance();
 
     public static final boolean DRAW_PATHS = true;

@@ -12,7 +12,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @Configurable
 public abstract class PineapplesAuto extends OpMode {
-
+        //1
     public enum Alliance { BLUE, RED }
     protected abstract Alliance getAlliance();
 

@@ -163,7 +163,7 @@ class Common {
         rightFrontDrive = hardwareMap.dcMotor.get("rightFront");
         rightBackDrive  = hardwareMap.dcMotor.get("rightBack");
 
-        // making all of these set velocity
+        //1 making all of these set velocity
         leftFrontDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         leftFrontDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         leftFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
