@@ -133,6 +133,7 @@ class Common {
 
         configurePinpoint(hardwareMap, recalibrateIMU);
 
+        scalefactor = 2800.0;
         // servos
         radvance = hardwareMap.servo.get("radvance");
         madvance = hardwareMap.servo.get("madvance");
@@ -187,10 +188,6 @@ class Common {
         Setting zeroPowerBehavior to BRAKE enables a "brake mode". This causes the motor to slow down
         much faster when it is coasting. This creates a much more controllable drivetrain. As the robot
         stops much quicker. */
-        leftFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightFrontDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        leftBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightBackDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
     }
 

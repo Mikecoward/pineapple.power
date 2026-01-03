@@ -162,7 +162,7 @@ public abstract class PineapplesBOT extends OpMode {
     protected double cmdX = 0.0;
     protected double cmdY = 0.0;
     protected double cmdTurn = 0.0;
-    protected static final double JOYSTICK_SLEW = 0.05;
+    protected static final double JOYSTICK_SLEW = 0.15;
 
 
     // BLUE “source of truth”
@@ -170,7 +170,7 @@ public abstract class PineapplesBOT extends OpMode {
     //29.8 - 104 135
     protected static final Pose[] poseArrayBlue = {
             new Pose(6.86, 135.11, Math.toRadians(0)), // 0 Blue Start Pose
-            new Pose(78, 61, Math.toRadians(135)), // 1 Blue shoot1 Pose
+            new Pose(73, 87, Math.toRadians(225)), // 1 Blue shoot1 Pose
             new Pose(9, 60, Math.toRadians(175)),// 2 Blue shoot2 Pose
             new Pose(120, 120, Math.toRadians(-180)),// 3 Blue Pickup Pose
             new Pose(30, 90, Math.toRadians(-180)) //
@@ -215,6 +215,8 @@ public abstract class PineapplesBOT extends OpMode {
         for (int i = 0; i < poseArrayBlue.length; i++) {
             poseArray[i] = poseArrayBlue[i];
         }
+
+        Common.configRobot(hardwareMap, false);
 
         follower = Constants.createFollower(hardwareMap);
         startingPose = poseArray[0]; // Blue start pose
@@ -262,35 +264,52 @@ public abstract class PineapplesBOT extends OpMode {
     static final double DEG_TO_RAD = Math.PI / 180.0;
     static final double TURN_GAIN = 0.6;              // smaller = slower
 
-    public void slowTurnToAprilTag() {
-        LLResult result = limelight.getLatestResult();
-        if (!result.isValid()) return;
+    private void waitForShooter(
+            double shooterTarget,
+            long timeoutMs,
+            boolean useTelemetry
+    ) {
+        final double INTAKE_TARGET = 1300;
+        final double TOL_LOW  = 0.95;
+        final double TOL_HIGH = 1.05;
 
-        double tx = limelight.getLatestResult().getTx();
-        if (Math.abs(tx) < TX_TOL) return;
+        DcMotorEx intake = (DcMotorEx) Common.intaking;
+        DcMotorEx shoot  = (DcMotorEx) Common.shoot;
+        DcMotorEx shoot2 = (DcMotorEx) Common.shoot2;
 
-        Pose p = follower.getPose();
+        long start = System.currentTimeMillis();
 
-        double deltaHeading = -tx * DEG_TO_RAD * TURN_GAIN;
+        while (true) {
+            double vI  = intake.getVelocity();
+            double vS  = shoot.getVelocity();
+            double vS2 = shoot2.getVelocity();
 
-        Pose target = new Pose(
-                p.getX(),
-                p.getY(),
-                p.getHeading() + deltaHeading
-        );
+            boolean intakeOk = vI >= 0.90 * INTAKE_TARGET;
 
-        follower.followPath(
-                follower.pathBuilder()
-                        .addPath(new BezierLine(p, target))
-                        .setLinearHeadingInterpolation(
-                                p.getHeading(),
-                                target.getHeading(),
-                                1.0
-                        )
-                        .build(),
-                true
-        );
+            boolean shooterOk =
+                    vS  >= TOL_LOW  * shooterTarget &&
+                            vS  <= TOL_HIGH * shooterTarget &&
+                            vS2 <= -TOL_LOW  * shooterTarget &&
+                            vS2 >= -TOL_HIGH * shooterTarget;
+
+            if ((intakeOk && shooterOk) &&
+                    System.currentTimeMillis() - start >= timeoutMs) {
+                break;
+            }
+
+            intake.setVelocity(INTAKE_TARGET);
+            shoot.setVelocity(shooterTarget);
+            shoot2.setVelocity(-1 * shooterTarget);
+
+            if (useTelemetry) {
+                telemetry.addData("shoot", vS);
+                telemetry.addData("shoot2", vS2);
+                telemetry.addData("intake", vI);
+                telemetry.update();
+            }
+        }
     }
+
 
 
 
@@ -299,6 +318,7 @@ public abstract class PineapplesBOT extends OpMode {
         follower.update();
 
         telemetry.clear();
+
 
         if (!automatedDrive) {
 
@@ -315,27 +335,30 @@ public abstract class PineapplesBOT extends OpMode {
                 Common.madvance.setPosition(.56);
             }
 
-            double targetY    = gamepad1.right_stick_y * Math.pow(Math.abs(gamepad1.right_stick_y), 1.2);
-            double targetX    = gamepad1.right_stick_x * Math.pow(Math.abs(gamepad1.right_stick_x), 1.2);
-            double targetTurn = gamepad1.left_stick_x  * Math.pow(Math.abs(gamepad1.left_stick_x),  1.5);
+            double targetY    = gamepad1.right_stick_y;
+            double targetX    = gamepad1.right_stick_x;
+            double targetTurn = gamepad1.left_stick_x  * Math.pow(Math.abs(gamepad1.left_stick_x),  1.5) / 1.5;
 
             cmdY    += clamp(targetY    - cmdY,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
             cmdX    += clamp(targetX    - cmdX,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
             cmdTurn += clamp(targetTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
 
             double mult = slowMode ? slowModeMultiplier : 1.0;
+
+
+            telemetry.addLine("Field Centric");
+            if( getAlliance() == Alliance.BLUE ){
+                cmdX = -cmdX;
+                cmdY = -cmdY;
+
+            }
+
             follower.setTeleOpDrive(
                     -cmdY * mult,
                     -cmdX * mult,
                     -cmdTurn * mult,
-                    true // Robot centric (as you had)
+                    true   // FIELD CENTRIC
             );
-        }
-
-        if (gamepad1.dpad_down && !automatedDrive) {
-            telemetry.addLine("LIMELIGHTTT");
-            follower.startTeleopDrive();
-            snapPoseToLimelight();
         }
 
 
@@ -378,10 +401,6 @@ public abstract class PineapplesBOT extends OpMode {
             currentAutoTarget = AutoTarget.NONE;
         }
 
-        if (gamepad1.right_bumper) {
-            slowTurnToAprilTag();
-            return; // don't run auto paths
-        }
         //add in launch zone later
         if ( gamepad1.left_bumper) {
 
@@ -400,73 +419,21 @@ public abstract class PineapplesBOT extends OpMode {
             intakingspeed = 1300;
             long a = System.currentTimeMillis();
 
-            while (((DcMotorEx) Common.intaking).getVelocity() <= .90 * intakingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() <= .83 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() >= .93 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() >= -.83 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() <= -.93 * shootingspeed ||
-                    System.currentTimeMillis() - a <= 2000) {
-
-                telemetry.clear();
-                telemetry.addData("-- shooting motor velocity", ((DcMotorEx) Common.shoot).getVelocity());
-                telemetry.addData("-- shooting2 motor velocity", ((DcMotorEx) Common.shoot2).getVelocity());
-                telemetry.addData("-- intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
-                telemetry.update();
-                ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
-                ((DcMotorEx) Common.shoot).setVelocity(.88 * shootingspeed);
-                ((DcMotorEx) Common.shoot2).setVelocity(.88 * -shootingspeed);
-            }
+            waitForShooter(.88 * shootingspeed, 2000, true);
 
             Common.ladvance.setPosition(.71);
             a = System.currentTimeMillis();
-            while (((DcMotorEx) Common.intaking).getVelocity() <= .90 * intakingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() <= .77 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() >= .87 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() >= -.77 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() <= -.87 * shootingspeed ||
-                    System.currentTimeMillis() - a <= 1500) {
+            waitForShooter(.84 * shootingspeed, 1500, true);
 
-                telemetry.clear();
-                telemetry.addData("-- shooting motor velocity", ((DcMotorEx) Common.shoot).getVelocity());
-                telemetry.addData("-- shooting2 motor velocity", ((DcMotorEx) Common.shoot2).getVelocity());
-                telemetry.addData("-- intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
-                telemetry.update();
-                ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
-                ((DcMotorEx) Common.shoot).setVelocity(.82 * shootingspeed);
-                ((DcMotorEx) Common.shoot2).setVelocity(.82 * -shootingspeed);
-            }
             Common.radvance.setPosition(.71);
 
             a = System.currentTimeMillis();
-            while (((DcMotorEx) Common.intaking).getVelocity() <= .90 * intakingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() <= .94 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() >= 1.00 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() >= -.94 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() <= -1.00 * shootingspeed ||
-                    System.currentTimeMillis() - a <= 1500) {
+            waitForShooter( .98 * shootingspeed, 1500, true);
 
-                telemetry.clear();
-                telemetry.addData("-- shooting motor velocity", ((DcMotorEx) Common.shoot).getVelocity());
-                telemetry.addData("-- shooting2 motor velocity", ((DcMotorEx) Common.shoot2).getVelocity());
-                telemetry.addData("-- intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
-                telemetry.update();
-                ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
-                ((DcMotorEx) Common.shoot).setVelocity(.97 * shootingspeed);
-                ((DcMotorEx) Common.shoot2).setVelocity(-.97 * shootingspeed);
-            }
             Common.madvance.setPosition(.718);
             a = System.currentTimeMillis();
-            while (((DcMotorEx) Common.intaking).getVelocity() <= .90 * intakingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() <= .95 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot).getVelocity() >= 1.05 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() >= -.95 * shootingspeed ||
-                    ((DcMotorEx) Common.shoot2).getVelocity() <= -1.05 * shootingspeed ||
-                    System.currentTimeMillis() - a <= 1500) {
+            waitForShooter(1 * shootingspeed, 1500, false);
 
-                ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
-                ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
-                ((DcMotorEx) Common.shoot2).setVelocity(-shootingspeed);
-            }
         }
 
         //motors
@@ -494,91 +461,20 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.addData("-- shooting2 motor velocity", ((DcMotorEx) Common.shoot2).getVelocity());
         telemetry.addData("-- intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
 
+        telemetry.addData("LF vel", ((DcMotorEx) Common.leftFrontDrive).getVelocity());
+        telemetry.addData("LB vel", ((DcMotorEx) Common.leftBackDrive).getVelocity());
+        telemetry.addData("RF vel", ((DcMotorEx) Common.rightFrontDrive).getVelocity());
+        telemetry.addData("RB vel", ((DcMotorEx) Common.rightBackDrive).getVelocity());
+
         telemetry.addLine("------ servos ----");
         telemetry.addData("radvance position", Common.radvance.getPosition());
-        telemetry.addData("madvance position", Common.radvance.getPosition());
-        telemetry.addData("ladvance position", Common.radvance.getPosition());
+        telemetry.addData("madvance position", Common.madvance.getPosition());
+        telemetry.addData("ladvance position", Common.ladvance.getPosition());
 
 
         telemetry.update();
 
 
-    }
-
-
-
-    protected Pose getRobotPoseFromCamera() {
-        LLResult result = limelight.getLatestResult();
-        if (result == null || !result.isValid()) return null;
-
-        Pose3D llpose = result.getBotpose();
-        if (llpose == null) return null;
-
-        double xMeters = llpose.getPosition().x;
-        double yMeters = llpose.getPosition().y;
-
-        double xInches = 72 + DistanceUnit.METER.toInches(yMeters);
-        double yInches = 72 - DistanceUnit.METER.toInches(xMeters);
-
-        YawPitchRollAngles ypr = llpose.getOrientation();
-        double headingRad = AngleUnit.normalizeRadians(ypr.getYaw(AngleUnit.RADIANS) - Math.toRadians(90));
-
-        return new Pose(xInches, yInches, headingRad);
-    }
-
-    private void snapPoseToLimelight() {
-        Pose llPose = getRobotPoseFromCamera();
-        if (llPose == null) {
-            telemetry.addLine("LL: no valid pose (snap skipped)");
-            return;
-        }
-
-        Pose cur = follower.getPose();
-
-        double dx = llPose.getX() - cur.getX();
-        double dy = llPose.getY() - cur.getY();
-        double dtheta = AngleUnit.normalizeRadians(llPose.getHeading() - cur.getHeading());
-
-        // Optional safety gates (recommended)
-        /*
-        if (Math.hypot(dx, dy) > POSITION_TOLERANCE_INCHES) {
-            telemetry.addData("LL snap rejected (pos err)", "%.1f in", Math.hypot(dx, dy));
-            return;
-        }
-        if (Math.abs(dtheta) > HEADING_TOLERANCE_RAD) {
-            telemetry.addData("LL snap rejected (head err)", "%.1f deg", Math.toDegrees(dtheta));
-            return;
-        }
-
-         */
-
-        follower.setPose(llPose);
-        telemetry.addData("LL snapped pose", "x=%.1f y=%.1f h=%.1f",
-                llPose.getX(), llPose.getY(), Math.toDegrees(llPose.getHeading()));
-    }
-
-    protected void updatePoseFromLL() {
-        Pose llPose = getRobotPoseFromCamera();
-        if (llPose != null) {
-            telemetry.addLine("LL Data Valid");
-
-            Pose currentPose = follower.getPose();
-
-            double dx = llPose.getX() - currentPose.getX();
-            double dy = llPose.getY() - currentPose.getY();
-            double dheading = normalizeAngleD(Math.toDegrees(llPose.getHeading() - currentPose.getHeading()));
-
-            if (true) {
-                follower.setPose(llPose);
-                telemetry.addData("Pose updated from LL", "%4.2f, %4.2f, %4.1f°",
-                        llPose.getX(), llPose.getY(), Math.toDegrees(llPose.getHeading()));
-            } else {
-                telemetry.addData("LL X/Y/H", "%4.2f, %4.2f, %4.1f°",
-                        llPose.getX(), llPose.getY(), Math.toDegrees(llPose.getHeading()));
-            }
-        } else {
-            telemetry.addLine("No LL Data");
-        }
     }
 
     protected static void sleep(int ms) {
