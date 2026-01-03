@@ -318,7 +318,7 @@ public abstract class PineapplesBOT extends OpMode {
         follower.update();
 
         telemetry.clear();
-
+        //1
 
         if (!automatedDrive) {
 
