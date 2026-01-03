@@ -162,7 +162,7 @@ public abstract class PineapplesBOT extends OpMode {
     protected double cmdX = 0.0;
     protected double cmdY = 0.0;
     protected double cmdTurn = 0.0;
-    protected static final double JOYSTICK_SLEW = 0.15;
+    protected static final double JOYSTICK_SLEW = 0.05;
 
 
     // BLUE “source of truth”
@@ -170,8 +170,8 @@ public abstract class PineapplesBOT extends OpMode {
     //29.8 - 104 135
     protected static final Pose[] poseArrayBlue = {
             new Pose(6.86, 135.11, Math.toRadians(0)), // 0 Blue Start Pose
-            new Pose(73, 87, Math.toRadians(225)), // 1 Blue shoot1 Pose
-            new Pose(9, 60, Math.toRadians(175)),// 2 Blue shoot2 Pose
+            new Pose(81, 79, Math.toRadians(225)), // 1 Blue shoot1 Pose
+            new Pose(0, 144, Math.toRadians(180)),// 2 Blue shoot2 Pose
             new Pose(120, 120, Math.toRadians(-180)),// 3 Blue Pickup Pose
             new Pose(30, 90, Math.toRadians(-180)) //
     };
@@ -313,18 +313,60 @@ public abstract class PineapplesBOT extends OpMode {
 
     boolean centric = false;
 
+    static final double LL_TX_TOL = 1.0;          // degrees
+    static final double LL_TURN_GAIN = 0.02;      // tune
+    static final long   LL_AIM_TIMEOUT_MS = 1000;
+    boolean llAligning = false;
+
     @Override
     public void loop() {
         follower.update();
 
         telemetry.clear();
         //1
+        LLResult result = limelight.getLatestResult();
+
+
+        boolean rbHeld = gamepad1.right_bumper;
+
+        if (rbHeld) {
+            result = limelight.getLatestResult();
+            double turn = 0;
+
+            if (result != null && result.isValid()) {
+                double tx = result.getTx();
+
+                if (Math.abs(tx) > LL_TX_TOL) {
+                    turn = -tx * LL_TURN_GAIN;
+
+                    // minimum turn to overcome friction
+                    if (Math.abs(turn) < 0.06) {
+                        turn = Math.copySign(0.06, turn);
+                    }
+                }
+            }
+
+            follower.setTeleOpDrive(0, 0, turn, true);
+        }
+
+
 
         if (!automatedDrive) {
 
+
+            if (Common.radvance.getPosition() != .55) {
+                Common.radvance.setPosition(.55);
+            }
+            if (Common.ladvance.getPosition() != .56) {
+                Common.ladvance.setPosition(.56);
+            }
+            if (Common.madvance.getPosition() != .535) {
+                Common.madvance.setPosition(.535);
+            }
+
             intakingspeed = 1200;
             shootingspeed = 50;
-            if (!automatedDrive) {
+            if (!automatedDrive && !gamepad1.right_bumper) {
                 double targetY    = gamepad1.right_stick_y * Math.pow(Math.abs(gamepad1.right_stick_y), 1.5);
                 double targetX    = gamepad1.right_stick_x * Math.pow(Math.abs(gamepad1.right_stick_x), 1.5);
                 double targetTurn = gamepad1.left_stick_x  * Math.pow(Math.abs(gamepad1.left_stick_x),  1.5) / 1.5;
@@ -401,9 +443,11 @@ public abstract class PineapplesBOT extends OpMode {
             currentAutoTarget = AutoTarget.NONE;
         }
 
+        if (gamepad1.dpadUpWasPressed()) {
+            follower.setPose(poseArray[2]);
+        }
         //add in launch zone later
         if ( gamepad1.left_bumper) {
-
 
             Pose p = follower.getPose();
             int distshooting1, distshooting2;
@@ -470,6 +514,20 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.addData("radvance position", Common.radvance.getPosition());
         telemetry.addData("madvance position", Common.madvance.getPosition());
         telemetry.addData("ladvance position", Common.ladvance.getPosition());
+
+        telemetry.addLine("---- LIMELIGHT ALIGN ----");
+        telemetry.addData("llAligning", llAligning);
+        telemetry.addData("RB pressed", gamepad1.right_bumper);
+        telemetry.addData("LL result null", result == null);
+
+        if (result != null) {
+            telemetry.addData("LL valid", result.isValid());
+            telemetry.addData("tx (deg)", "%.2f", result.getTx());
+            telemetry.addData("tx abs", "%.2f", Math.abs(result.getTx()));
+        }
+
+        telemetry.addData("TX tol", LL_TX_TOL);
+        //telemetry.addData("Turn cmd", "%.3f", turn);
 
 
         telemetry.update();

@@ -114,6 +114,8 @@ class Common {
 
     static DcMotor shoot2 = null;
 
+    static DcMotor lifting = null;
+
     static Telemetry telemetry = null;
     static Gamepad gamepad1 = null;
     static Gamepad gamepad2 = null;
@@ -139,8 +141,6 @@ class Common {
         madvance = hardwareMap.servo.get("madvance");
         ladvance = hardwareMap.servo.get("ladvance");
 
-        ladvance.setDirection(Servo.Direction.REVERSE);
-
         intaking  = hardwareMap.dcMotor.get("intake");
         intaking.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         intaking.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -153,10 +153,12 @@ class Common {
         shoot.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         shoot2  = hardwareMap.dcMotor.get("shoot2");
-        shoot2.setDirection(DcMotor.Direction.REVERSE);
+        shoot.setDirection(DcMotor.Direction.FORWARD);
         shoot2.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shoot2.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         shoot2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
+        lifting = hardwareMap.dcMotor.get("lifting");
 
         leftFrontDrive  = hardwareMap.dcMotor.get("leftFront");
         leftBackDrive   = hardwareMap.dcMotor.get("leftBack");
