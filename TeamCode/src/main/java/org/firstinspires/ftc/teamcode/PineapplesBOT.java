@@ -311,7 +311,7 @@ public abstract class PineapplesBOT extends OpMode {
     }
 
 
-
+    boolean centric = false;
 
     @Override
     public void loop() {
@@ -324,41 +324,41 @@ public abstract class PineapplesBOT extends OpMode {
 
             intakingspeed = 1200;
             shootingspeed = 50;
+            if (!automatedDrive) {
+                double targetY    = gamepad1.right_stick_y * Math.pow(Math.abs(gamepad1.right_stick_y), 1.5);
+                double targetX    = gamepad1.right_stick_x * Math.pow(Math.abs(gamepad1.right_stick_x), 1.5);
+                double targetTurn = gamepad1.left_stick_x  * Math.pow(Math.abs(gamepad1.left_stick_x),  1.5) / 1.5;
 
-            if (Common.radvance.getPosition() != .55) {
-                Common.radvance.setPosition(.55);
+                cmdY    += clamp(targetY    - cmdY,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
+                cmdX    += clamp(targetX    - cmdX,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
+                cmdTurn += clamp(targetTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
+
+                double mult = slowMode ? slowModeMultiplier : 1.0;
+
+                if (gamepad1.startWasPressed()){
+                    centric = !centric;
+
+                }
+                if (centric){
+                    telemetry.addLine("Robot Centric");
+
+                }
+                else{
+                    telemetry.addLine("Field Centric");
+                    if( getAlliance() == Alliance.BLUE ){
+                        cmdX = -cmdX;
+                        cmdY = -cmdY;
+
+                    }
+                }
+                follower.setTeleOpDrive(
+                        -cmdY * mult,
+                        -cmdX * mult,
+                        -cmdTurn * mult,
+                        centric // Robot centric (as you had)
+                );
             }
-            if (Common.ladvance.getPosition() != .535) {
-                Common.ladvance.setPosition(.535);
-            }
-            if (Common.madvance.getPosition() != .56) {
-                Common.madvance.setPosition(.56);
-            }
 
-            double targetY    = gamepad1.right_stick_y;
-            double targetX    = gamepad1.right_stick_x;
-            double targetTurn = gamepad1.left_stick_x  * Math.pow(Math.abs(gamepad1.left_stick_x),  1.5) / 1.5;
-
-            cmdY    += clamp(targetY    - cmdY,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
-            cmdX    += clamp(targetX    - cmdX,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
-            cmdTurn += clamp(targetTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
-
-            double mult = slowMode ? slowModeMultiplier : 1.0;
-
-
-            telemetry.addLine("Field Centric");
-            if( getAlliance() == Alliance.BLUE ){
-                cmdX = -cmdX;
-                cmdY = -cmdY;
-
-            }
-
-            follower.setTeleOpDrive(
-                    -cmdY * mult,
-                    -cmdX * mult,
-                    -cmdTurn * mult,
-                    true   // FIELD CENTRIC
-            );
         }
 
 
