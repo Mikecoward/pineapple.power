@@ -374,50 +374,30 @@ public abstract class PineapplesBOT extends OpMode {
             }
 
             // GAMEPAD CONTROLS:
-            double joyY = gamepad1.right_stick_y * Math.pow(Math.abs(gamepad1.right_stick_y), 1.5);
-            double joyX = gamepad1.right_stick_x * Math.pow(Math.abs(gamepad1.right_stick_x), 1.5);
-            double joyTurn = gamepad1.left_stick_x * Math.pow(Math.abs(gamepad1.left_stick_x), 1.5) / 1.5;
+            double joyY = gamepad1.right_stick_y;
+            double joyX = gamepad1.right_stick_x;
+            double joyTurn = gamepad1.left_stick_x;
 
 
+            double turnCmd;
+
+            // default: driver turn
+            turnCmd = -gamepad1.right_stick_x;
+
+            // ONLY override when actively aiming AND target is valid
             if (gamepad1.right_bumper) {
-                if (!aiming) { aiming = true; aimStartMs = System.currentTimeMillis(); }
-
-                joyX = 0;
-                joyY = 0;
-
-                boolean timedOut =
-                        (System.currentTimeMillis() - aimStartMs) > (long)(AIM_TIMEOUT_S * 1000);
-                joyTurn = timedOut ? 0.0 : limelightTurnCmd();
-            } else {
-                aiming = false;
+                LLResult r = limelight.getLatestResult();
+                if (r != null && r.isValid() && Math.abs(r.getTx()) > AIM_TX_TOL_DEG) {
+                    turnCmd = limelightTurnCmd();
+                }
             }
-
-            // ADD PI IF IT FEELS OFF BY SOME CONSTANT (double heading = follower.getPose().getHeading() + Math.PI)
-            double heading = follower.getPose().getHeading(); // radians
-            double cos = Math.cos(heading);
-            double sin = Math.sin(heading);
-
-            double fieldX = joyX * cos - joyY * sin;
-            double fieldY = joyX * sin + joyY * cos;
-
-            // --- slew AFTER rotation ---
-            cmdX    += clamp(fieldX  - cmdX,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
-            cmdY    += clamp(fieldY  - cmdY,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
-            if (Math.abs(joyTurn) < 0.03 && !aiming) {
-                cmdTurn = 0.0;
-            } else {
-                cmdTurn += clamp(joyTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
-            }
-            double mult = slowMode ? slowModeMultiplier : 1.0;
 
             follower.setTeleOpDrive(
-                    -cmdY * mult,
-                    -cmdX * mult,
-                    -cmdTurn * mult,
-                    false
+                    -gamepad1.left_stick_y,
+                    -gamepad1.left_stick_x,
+                    turnCmd,
+                    true // robot centric
             );
-
-
 
         }
 
@@ -493,10 +473,6 @@ public abstract class PineapplesBOT extends OpMode {
             } else {
                 shootingspeed = 1325;
             }
-
-            Common.radvance.setPosition(.64);
-            Common.madvance.setPosition(.65);
-            Common.ladvance.setPosition(.625);
 
             intakingspeed = 1300;
             long a = System.currentTimeMillis();
