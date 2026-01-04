@@ -150,7 +150,7 @@ public abstract class PineapplesBOT extends OpMode {
     protected boolean automatedDrive;
     protected AutoTarget currentAutoTarget = AutoTarget.NONE;
 
-    protected int numPaths = 5;
+    protected int numPaths = 6;
     protected Supplier<PathChain>[] pathArray;
 
     protected boolean slowMode = false;
@@ -172,8 +172,10 @@ public abstract class PineapplesBOT extends OpMode {
             new Pose(6.86, 135.11, Math.toRadians(0)), // 0 Blue Start Pose
             new Pose(73, 87, Math.toRadians(225)), // 1 Blue shoot1 Pose
             new Pose(9, 60, Math.toRadians(175)),// 2 Blue shoot2 Pose
-            new Pose(120, 120, Math.toRadians(-180)),// 3 Blue Pickup Pose
-            new Pose(30, 90, Math.toRadians(-180)) //
+
+            new Pose(0, 144, Math.toRadians(180)),// 3 Blue Pickup Pose
+            new Pose(7, 135, Math.toRadians(180)), // BLue reset ODOM Pose
+            new Pose( 70, 131, Math.toRadians(0)) // GATE POSE
     };
 
     // Alliance-specific poses (computed at init)
@@ -185,7 +187,8 @@ public abstract class PineapplesBOT extends OpMode {
         shooting1(1),
         shooting2(2),
         PICKUP(3),
-        AUTO_A_END(4);
+        ResetODOM(4),
+        GATE(5);
 
         public final int value;
 
@@ -266,7 +269,7 @@ public abstract class PineapplesBOT extends OpMode {
 
     private void waitForShooter(
             double shooterTarget,
-            long timeoutMs,
+            long waitMS,
             boolean useTelemetry
     ) {
         final double INTAKE_TARGET = 1300;
@@ -292,8 +295,8 @@ public abstract class PineapplesBOT extends OpMode {
                             vS2 <= -TOL_LOW  * shooterTarget &&
                             vS2 >= -TOL_HIGH * shooterTarget;
 
-            if ((intakeOk && shooterOk) &&
-                    System.currentTimeMillis() - start >= timeoutMs) {
+            if ((intakeOk && shooterOk && System.currentTimeMillis() - start >= waitMS) ||
+                    System.currentTimeMillis() - start >= 2300) {
                 break;
             }
 
@@ -313,6 +316,40 @@ public abstract class PineapplesBOT extends OpMode {
 
     boolean centric = false;
 
+    // LIMELIGHT CODE:
+    // --- Limelight aim (hold right bumper) ---
+    static final double AIM_TX_TOL_DEG = 1.0;     // stop when |tx| <= this
+    static final double AIM_KP = 0.02;            // scalar: turnPower = KP * tx
+    static final double AIM_MAX_TURN = 0.18;      // keep it slow
+    static final double AIM_MIN_TURN = 0.04;      // overcome stiction; set 0 if too jumpy
+    static final double AIM_TIMEOUT_S = 0.8;      // safety timeout per hold
+
+    static boolean AIM_INVERT = false;            // flip if it turns the wrong way
+
+    boolean aiming = false;
+    long aimStartMs = 0;
+
+    private double limelightTurnCmd() {
+        LLResult r = limelight.getLatestResult();
+        if (r == null || !r.isValid()) return 0.0;
+
+        double tx = r.getTx(); // degrees
+        if (Math.abs(tx) <= AIM_TX_TOL_DEG) return 0.0;
+
+        double turn = AIM_KP * tx;
+
+        // clamp slow
+        turn = clamp(turn, -AIM_MAX_TURN, AIM_MAX_TURN);
+
+        // minimum turn to actually move (optional)
+        if (Math.abs(turn) < AIM_MIN_TURN) turn = Math.signum(turn) * AIM_MIN_TURN;
+
+        if (AIM_INVERT) turn = -turn;
+        return turn;
+
+
+    }
+
     @Override
     public void loop() {
         follower.update();
@@ -324,57 +361,79 @@ public abstract class PineapplesBOT extends OpMode {
 
             intakingspeed = 1200;
             shootingspeed = 50;
-            if (!automatedDrive) {
-                double targetY    = gamepad1.right_stick_y * Math.pow(Math.abs(gamepad1.right_stick_y), 1.5);
-                double targetX    = gamepad1.right_stick_x * Math.pow(Math.abs(gamepad1.right_stick_x), 1.5);
-                double targetTurn = gamepad1.left_stick_x  * Math.pow(Math.abs(gamepad1.left_stick_x),  1.5) / 1.5;
 
-                cmdY    += clamp(targetY    - cmdY,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
-                cmdX    += clamp(targetX    - cmdX,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
-                cmdTurn += clamp(targetTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
 
-                double mult = slowMode ? slowModeMultiplier : 1.0;
-
-                if (gamepad1.startWasPressed()){
-                    centric = !centric;
-
-                }
-                if (centric){
-                    telemetry.addLine("Robot Centric");
-
-                }
-                else{
-                    telemetry.addLine("Field Centric");
-                    if( getAlliance() == Alliance.BLUE ){
-                        cmdX = -cmdX;
-                        cmdY = -cmdY;
-
-                    }
-                }
-                follower.setTeleOpDrive(
-                        -cmdY * mult,
-                        -cmdX * mult,
-                        -cmdTurn * mult,
-                        centric // Robot centric (as you had)
-                );
+            if (Common.radvance.getPosition() != .55) {
+                Common.radvance.setPosition(.55);
             }
+            if (Common.madvance.getPosition() != .56) {
+                Common.madvance.setPosition(.56);
+            }
+            if (Common.ladvance.getPosition() != .535) {
+                Common.ladvance.setPosition(.535);
+            }
+
+            // GAMEPAD CONTROLS:
+            double joyY = gamepad1.right_stick_y * Math.pow(Math.abs(gamepad1.right_stick_y), 1.5);
+            double joyX = gamepad1.right_stick_x * Math.pow(Math.abs(gamepad1.right_stick_x), 1.5);
+            double joyTurn = gamepad1.left_stick_x * Math.pow(Math.abs(gamepad1.left_stick_x), 1.5) / 1.5;
+
+
+            if (gamepad1.right_bumper) {
+                if (!aiming) { aiming = true; aimStartMs = System.currentTimeMillis(); }
+
+                joyX = 0;
+                joyY = 0;
+
+                boolean timedOut =
+                        (System.currentTimeMillis() - aimStartMs) > (long)(AIM_TIMEOUT_S * 1000);
+                joyTurn = timedOut ? 0.0 : limelightTurnCmd();
+            } else {
+                aiming = false;
+            }
+
+            // ADD PI IF IT FEELS OFF BY SOME CONSTANT (double heading = follower.getPose().getHeading() + Math.PI)
+            double heading = follower.getPose().getHeading(); // radians
+            double cos = Math.cos(heading);
+            double sin = Math.sin(heading);
+
+            double fieldX = joyX * cos - joyY * sin;
+            double fieldY = joyX * sin + joyY * cos;
+
+            // --- slew AFTER rotation ---
+            cmdX    += clamp(fieldX  - cmdX,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
+            cmdY    += clamp(fieldY  - cmdY,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
+            cmdTurn += clamp(joyTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
+
+            double mult = slowMode ? slowModeMultiplier : 1.0;
+
+            follower.setTeleOpDrive(
+                    -cmdY * mult,
+                    -cmdX * mult,
+                    -cmdTurn * mult,
+                    false
+            );
+
+
 
         }
 
 
 
+        // CLOSEST SHOOTER
         if (gamepad1.aWasPressed() && !automatedDrive) {
             Pose p = follower.getPose();
             int distshooting1, distshooting2;
 
             distshooting2 = (int) Math.round(Math.sqrt(Math.pow(p.getX() - 9, 2) + Math.pow(p.getY() - 60, 2)));
+            distshooting2 = 100000;
+            // FOR NOW ONLY GO FOR DISTSHOOTING1
             distshooting1 = (int) Math.round(Math.sqrt(Math.pow(p.getX() - 72, 2) + Math.pow(p.getY() - 72, 2)));
 
             if (distshooting1 < distshooting2) {
                 follower.followPath(pathArray[AutoTarget.shooting1.value].get());
                 automatedDrive = true;
                 currentAutoTarget = AutoTarget.shooting1;
-
             } else {
                 follower.followPath(pathArray[AutoTarget.shooting2.value].get());
                 automatedDrive = true;
@@ -390,17 +449,32 @@ public abstract class PineapplesBOT extends OpMode {
         }
 
         if (gamepad1.bWasPressed() && !automatedDrive) {
-            follower.followPath(pathArray[AutoTarget.start.value].get());
+            follower.followPath(pathArray[AutoTarget.PICKUP.value].get());
             automatedDrive = true;
-            currentAutoTarget = AutoTarget.start;
+            currentAutoTarget = AutoTarget.PICKUP;
         }
 
-        if (!gamepad1.b && automatedDrive && currentAutoTarget == AutoTarget.start) {
+        if (!gamepad1.b && automatedDrive && currentAutoTarget == AutoTarget.PICKUP) {
             follower.startTeleopDrive();
             automatedDrive = false;
             currentAutoTarget = AutoTarget.NONE;
         }
 
+        if (gamepad1.xWasPressed() && !automatedDrive) {
+            follower.followPath(pathArray[AutoTarget.GATE.value].get());
+            automatedDrive = true;
+            currentAutoTarget = AutoTarget.GATE;
+        }
+
+        if (!gamepad1.x && automatedDrive && currentAutoTarget == AutoTarget.GATE) {
+            follower.startTeleopDrive();
+            automatedDrive = false;
+            currentAutoTarget = AutoTarget.NONE;
+        }
+
+        if (gamepad1.dpadUpWasPressed()) {
+            follower.setPose(poseArray[4]);
+        }
         //add in launch zone later
         if ( gamepad1.left_bumper) {
 
@@ -410,11 +484,16 @@ public abstract class PineapplesBOT extends OpMode {
             distshooting2 = (int) Math.round(Math.sqrt(Math.pow(p.getX() - 9, 2) + Math.pow(p.getY() - 60, 2)));
             distshooting1 = (int) Math.round(Math.sqrt(Math.pow(p.getX() - 72, 2) + Math.pow(p.getY() - 72, 2)));
 
+            // DOESNT MATTER RN
             if (distshooting1 < distshooting2) {
                 shootingspeed = 1325;
             } else {
                 shootingspeed = 1325;
             }
+
+            Common.radvance.setPosition(.64);
+            Common.madvance.setPosition(.65);
+            Common.ladvance.setPosition(.625);
 
             intakingspeed = 1300;
             long a = System.currentTimeMillis();
@@ -470,6 +549,12 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.addData("radvance position", Common.radvance.getPosition());
         telemetry.addData("madvance position", Common.madvance.getPosition());
         telemetry.addData("ladvance position", Common.ladvance.getPosition());
+
+        LLResult rr = limelight.getLatestResult();
+        telemetry.addLine("---- limelight ----");
+        telemetry.addData("valid", rr != null && rr.isValid());
+        if (rr != null && rr.isValid()) telemetry.addData("tx(deg)", rr.getTx());
+        telemetry.addData("aiming", aiming);
 
 
         telemetry.update();
