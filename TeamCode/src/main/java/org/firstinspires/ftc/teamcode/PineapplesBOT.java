@@ -403,8 +403,11 @@ public abstract class PineapplesBOT extends OpMode {
             // --- slew AFTER rotation ---
             cmdX    += clamp(fieldX  - cmdX,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
             cmdY    += clamp(fieldY  - cmdY,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
-            cmdTurn += clamp(joyTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
-
+            if (Math.abs(joyTurn) < 0.03 && !aiming) {
+                cmdTurn = 0.0;
+            } else {
+                cmdTurn += clamp(joyTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
+            }
             double mult = slowMode ? slowModeMultiplier : 1.0;
 
             follower.setTeleOpDrive(
