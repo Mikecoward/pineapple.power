@@ -178,7 +178,7 @@ public abstract class PineapplesBOT extends OpMode {
             new Pose( 70, 131, Math.toRadians(0)) // GATE POSE
     };
 
-    // Alliance-specific poses (computed at init)
+    //1 Alliance-specific poses (computed at init)
     protected Pose[] poseArray;
 
     protected enum AutoTarget {
