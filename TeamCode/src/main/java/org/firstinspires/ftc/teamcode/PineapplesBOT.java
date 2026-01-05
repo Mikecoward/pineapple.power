@@ -150,7 +150,7 @@ public abstract class PineapplesBOT extends OpMode {
     protected boolean automatedDrive;
     protected AutoTarget currentAutoTarget = AutoTarget.NONE;
 
-    protected int numPaths = 6;
+    protected int numPaths = 7;
     protected Supplier<PathChain>[] pathArray;
 
     protected boolean slowMode = false;
@@ -175,7 +175,8 @@ public abstract class PineapplesBOT extends OpMode {
 
             new Pose(0, 144, Math.toRadians(180)),// 3 Blue Pickup Pose
             new Pose(7, 135, Math.toRadians(180)), // BLue reset ODOM Pose
-            new Pose( 70, 131, Math.toRadians(0)) // GATE POSE
+            new Pose( 70, 131, Math.toRadians(0)), // GATE POSE
+            new Pose (32, 114, Math.toRadians(225)) // LIFTING
     };
 
     //1 Alliance-specific poses (computed at init)
@@ -188,7 +189,8 @@ public abstract class PineapplesBOT extends OpMode {
         shooting2(2),
         PICKUP(3),
         ResetODOM(4),
-        GATE(5);
+        GATE(5),
+        LIFTING(6);
 
         public final int value;
 
@@ -210,7 +212,7 @@ public abstract class PineapplesBOT extends OpMode {
     double DRIVE_TICKS_PER_SEC_MAX = 2800.0;
 
 
-
+    int targetPosition = 0;
     @Override
     public void init() {
         // Build alliance-specific pose array
@@ -252,6 +254,10 @@ public abstract class PineapplesBOT extends OpMode {
         Common.madvance.setPosition(.56);
         Common.ladvance.setPosition(.535);
 
+        targetPosition = 0;
+        Common.lifting.setTargetPosition(targetPosition);
+        Common.lifting.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        Common.lifting.setPower(0.6);
     }
 
     public void start() {
@@ -349,6 +355,8 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     }
+
+    int MOVE_COUNTS = 200;
 
     @Override
     public void loop() {
@@ -455,8 +463,32 @@ public abstract class PineapplesBOT extends OpMode {
             currentAutoTarget = AutoTarget.NONE;
         }
 
-        if (gamepad1.dpadUpWasPressed()) {
+        if (gamepad1.yWasPressed() && !automatedDrive) {
+            follower.followPath(pathArray[AutoTarget.LIFTING.value].get());
+            automatedDrive = true;
+            currentAutoTarget = AutoTarget.LIFTING;
+        }
+
+        if (!gamepad1.y && automatedDrive && currentAutoTarget == AutoTarget.LIFTING) {
+            follower.startTeleopDrive();
+            automatedDrive = false;
+            currentAutoTarget = AutoTarget.NONE;
+        }
+
+        if (gamepad1.right_trigger > .7) {
             follower.setPose(poseArray[4]);
+        }
+
+        if (gamepad1.dpad_up) {
+            targetPosition += MOVE_COUNTS;
+            Common.lifting.setTargetPosition(targetPosition);
+            sleep(200);
+        }
+
+        if (gamepad1.dpad_down) {
+            targetPosition -= MOVE_COUNTS;
+            Common.lifting.setTargetPosition(targetPosition);
+            sleep(200);
         }
         //add in launch zone later
         if ( gamepad1.left_bumper) {

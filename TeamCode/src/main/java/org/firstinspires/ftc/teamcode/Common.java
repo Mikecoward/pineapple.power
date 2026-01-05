@@ -159,6 +159,9 @@ class Common {
         shoot2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         lifting = hardwareMap.dcMotor.get("lifting");
+        lifting.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        lifting.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
 
         leftFrontDrive  = hardwareMap.dcMotor.get("leftFront");
         leftBackDrive   = hardwareMap.dcMotor.get("leftBack");
