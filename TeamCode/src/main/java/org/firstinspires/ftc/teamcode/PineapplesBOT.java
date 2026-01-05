@@ -257,7 +257,7 @@ public abstract class PineapplesBOT extends OpMode {
         targetPosition = 0;
         Common.lifting.setTargetPosition(targetPosition);
         Common.lifting.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        Common.lifting.setPower(0.6);
+        Common.lifting.setPower(0.25);
     }
 
     public void start() {
@@ -356,7 +356,9 @@ public abstract class PineapplesBOT extends OpMode {
 
     }
 
-    int MOVE_COUNTS = 200;
+    static final int LIFT_UP_POS = 3000; // set to your real top height
+    static final int LIFT_DOWN_POS = 0;
+
 
     @Override
     public void loop() {
@@ -480,16 +482,13 @@ public abstract class PineapplesBOT extends OpMode {
         }
 
         if (gamepad1.dpad_up) {
-            targetPosition += MOVE_COUNTS;
-            Common.lifting.setTargetPosition(targetPosition);
-            sleep(200);
+            Common.lifting.setTargetPosition(LIFT_UP_POS);
         }
 
         if (gamepad1.dpad_down) {
-            targetPosition -= MOVE_COUNTS;
-            Common.lifting.setTargetPosition(targetPosition);
-            sleep(200);
+            Common.lifting.setTargetPosition(LIFT_DOWN_POS);
         }
+
         //add in launch zone later
         if ( gamepad1.left_bumper) {
 
