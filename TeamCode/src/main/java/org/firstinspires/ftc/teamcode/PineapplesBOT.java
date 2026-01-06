@@ -170,13 +170,13 @@ public abstract class PineapplesBOT extends OpMode {
     //29.8 - 104 135
     protected static final Pose[] poseArrayBlue = {
             new Pose(6.86, 135.11, Math.toRadians(0)), // 0 Blue Start Pose
-            new Pose(73, 87, Math.toRadians(225)), // 1 Blue shoot1 Pose
+            new Pose(92, 92, Math.toRadians(225)), // 1 Blue shoot1 Pose
             new Pose(9, 60, Math.toRadians(175)),// 2 Blue shoot2 Pose
 
             new Pose(0, 144, Math.toRadians(180)),// 3 Blue Pickup Pose
-            new Pose(7, 135, Math.toRadians(180)), // BLue reset ODOM Pose
+            new Pose(7, 135, Math.toRadians(180)), // 4 BLue reset ODOM Pose
             new Pose( 70, 131, Math.toRadians(0)), // GATE POSE
-            new Pose (32, 114, Math.toRadians(225)) // LIFTING
+            new Pose (25, 110, Math.toRadians(225)) // LIFTING
     };
 
     //1 Alliance-specific poses (computed at init)
@@ -279,14 +279,16 @@ public abstract class PineapplesBOT extends OpMode {
             boolean useTelemetry
     ) {
         final double INTAKE_TARGET = 1300;
-        final double TOL_LOW  = 0.95;
-        final double TOL_HIGH = 1.05;
+        final double TOL_LOW  = 0.97;
+        final double TOL_HIGH = 1.03;
 
         DcMotorEx intake = (DcMotorEx) Common.intaking;
         DcMotorEx shoot  = (DcMotorEx) Common.shoot;
         DcMotorEx shoot2 = (DcMotorEx) Common.shoot2;
 
         long start = System.currentTimeMillis();
+        long redo = 0;
+        boolean good = false;
 
         while (true) {
             double vI  = intake.getVelocity();
@@ -301,9 +303,18 @@ public abstract class PineapplesBOT extends OpMode {
                             vS2 <= -TOL_LOW  * shooterTarget &&
                             vS2 >= -TOL_HIGH * shooterTarget;
 
-            if ((intakeOk && shooterOk && System.currentTimeMillis() - start >= waitMS) ||
-                    System.currentTimeMillis() - start >= 2300) {
-                break;
+            if (good && !shooterOk) {
+                good = false;
+            }
+            if (shooterOk && !good) {
+                good  = true;
+                redo = System.currentTimeMillis();
+            }
+            if (good) {
+                if ((intakeOk && shooterOk && System.currentTimeMillis() - redo >= waitMS) ||
+                        System.currentTimeMillis() - start >= 2000) {
+                    break;
+                }
             }
 
             intake.setVelocity(INTAKE_TARGET);
@@ -330,7 +341,7 @@ public abstract class PineapplesBOT extends OpMode {
     static final double AIM_MIN_TURN = 0.04;      // overcome stiction; set 0 if too jumpy
     static final double AIM_TIMEOUT_S = 0.8;      // safety timeout per hold
 
-    static boolean AIM_INVERT = false;            // flip if it turns the wrong way
+    static boolean AIM_INVERT = true;            // flip if it turns the wrong way
 
     boolean aiming = false;
     long aimStartMs = 0;
@@ -356,7 +367,7 @@ public abstract class PineapplesBOT extends OpMode {
 
     }
 
-    static final int LIFT_UP_POS = 3000; // set to your real top height
+    static final int LIFT_UP_POS = 400;
     static final int LIFT_DOWN_POS = 0;
 
 
@@ -369,8 +380,8 @@ public abstract class PineapplesBOT extends OpMode {
 
         if (!automatedDrive) {
 
-            intakingspeed = 1200;
-            shootingspeed = 50;
+            intakingspeed = 500;
+            shootingspeed = 0;
 
 
             if (Common.radvance.getPosition() != .55) {
@@ -392,7 +403,7 @@ public abstract class PineapplesBOT extends OpMode {
             double turnCmd;
 
             // default: driver turn
-            turnCmd = -gamepad1.right_stick_x;
+            turnCmd = -gamepad1.left_stick_x;
 
             // ONLY override when actively aiming AND target is valid
             if (gamepad1.right_bumper) {
@@ -403,10 +414,10 @@ public abstract class PineapplesBOT extends OpMode {
             }
 
             follower.setTeleOpDrive(
-                    -gamepad1.left_stick_y,
-                    -gamepad1.left_stick_x,
+                    -gamepad1.right_stick_y,
+                    -gamepad1.right_stick_x,
                     turnCmd,
-                    true // robot centric
+                    false // robot centric
             );
 
         }
@@ -481,17 +492,16 @@ public abstract class PineapplesBOT extends OpMode {
             follower.setPose(poseArray[4]);
         }
 
-        if (gamepad1.dpad_up) {
-            Common.lifting.setTargetPosition(LIFT_UP_POS);
-        }
 
-        if (gamepad1.dpad_down) {
-            Common.lifting.setTargetPosition(LIFT_DOWN_POS);
-        }
 
         //add in launch zone later
         if ( gamepad1.left_bumper) {
-
+            follower.setTeleOpDrive(
+                    0,
+                    0,
+                    0,
+                    false // robot centric
+            );
 
             Pose p = follower.getPose();
             int distshooting1, distshooting2;
@@ -506,25 +516,38 @@ public abstract class PineapplesBOT extends OpMode {
             }
 
             intakingspeed = 1300;
-            long a = System.currentTimeMillis();
 
-            waitForShooter(.88 * shootingspeed, 2000, true);
+            waitForShooter(950, 1000, true);
 
             Common.ladvance.setPosition(.71);
-            a = System.currentTimeMillis();
-            waitForShooter(.84 * shootingspeed, 1500, true);
+
+            waitForShooter(1000, 1000, true);
 
             Common.radvance.setPosition(.71);
 
-            a = System.currentTimeMillis();
-            waitForShooter( .98 * shootingspeed, 1500, true);
+            waitForShooter( 950, 1000, true);
 
-            Common.madvance.setPosition(.718);
-            a = System.currentTimeMillis();
-            waitForShooter(1 * shootingspeed, 1500, false);
+            Common.madvance.setPosition(.725);
+
+            //waitForShooter(1600, 2000, true);
+
+            waitForShooter(900, 1000, false);
 
         }
 
+        if (gamepad1.dpad_up) {
+            Common.lifting.setTargetPosition(LIFT_UP_POS);
+
+        }
+
+        if (gamepad1.dpad_down) {
+            Common.lifting.setTargetPosition(LIFT_DOWN_POS);
+        }
+
+        if (Common.lifting.getCurrentPosition() == 1000) {
+            intakingspeed = 0;
+            shootingspeed = 0;
+        }
         //motors
         ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
         ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
@@ -554,6 +577,7 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.addData("LB vel", ((DcMotorEx) Common.leftBackDrive).getVelocity());
         telemetry.addData("RF vel", ((DcMotorEx) Common.rightFrontDrive).getVelocity());
         telemetry.addData("RB vel", ((DcMotorEx) Common.rightBackDrive).getVelocity());
+        telemetry.addData("lifting", Common.lifting.getCurrentPosition());
 
         telemetry.addLine("------ servos ----");
         telemetry.addData("radvance position", Common.radvance.getPosition());

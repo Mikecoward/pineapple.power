@@ -31,34 +31,31 @@ public abstract class PineapplesAuto extends OpMode {
     private PathChain[] pathChains;
     private Pose[] poseArray;
 
-    private int state = 1;
+    private int state = 0; // start at state 0
     private long stopStartTime = 0;
-    private int gateStep = 0; // 0 = not started, 1 = L, 2 = R, 3 = M
+    private int gateStep = 0;
 
     /* ---------------- SPEEDS ---------------- */
     private static final double NORMAL_SPEED = 0.18;
-    private static final double SLOW_SPEED   = 0.08;
-
-    /* ---------------- TIMING ---------------- */
-    private static final long SHOOT_STOP_MS = 3000;
-    private static final long GATE_DELAY_MS = 500;
+    private static final double SLOW_SPEED = 0.12;
+    private static final double INTAKE_SPEED_MODIFIER = 0.85;
 
     /* ---------------- MOTOR SPEEDS ---------------- */
-    private static final double INTAKE_RPM  = 1300;
-    private static final double SHOOTER_RPM = 1325;
+    private static final double INTAKE_RPM = 1300;
+    private static final double SHOOTER_RPM = 1325; // perfect speed for all balls
 
     /* ---------------- POSES ---------------- */
     protected static final Pose[] poseArrayBlue = {
-            new Pose(21, 125, Math.toRadians(145)),
-            new Pose(58, 85 , Math.toRadians(-45)), // SHOOT (1)
-            new Pose(24, 120 , Math.toRadians(-90)),
-            new Pose(24, 85 , Math.toRadians(-90)), // INTAKE
-            new Pose(58, 85 , Math.toRadians(-45)), // SHOOT (4)
-            new Pose(24, 120 , Math.toRadians(-90)),
-            new Pose(24, 58 , Math.toRadians(-90)), // INTAKE updated for better collection
-            new Pose(58, 85 , Math.toRadians(-45)), // SHOOT (7)
-            new Pose(24, 120 , Math.toRadians(-90)),
-            new Pose(24, 40 , Math.toRadians(-90)), // INTAKE
+            new Pose(21, 125, Math.toRadians(145)), // 0 start
+            new Pose(58, 85 , Math.toRadians(-45)),  // 1 SHOOT 1
+            new Pose(24, 120 , Math.toRadians(-90)), // 2 move to intake 1
+            new Pose(24, 85 , Math.toRadians(-90)),  // 3 INTAKE 1
+            new Pose(58, 85 , Math.toRadians(-45)),  // 4 SHOOT 2
+            new Pose(24, 120 , Math.toRadians(-90)), // 5 move to intake 2
+            new Pose(24, 58 , Math.toRadians(-90)),  // 6 INTAKE 2
+            new Pose(58, 85 , Math.toRadians(-45)),  // 7 SHOOT 3
+            new Pose(24, 120 , Math.toRadians(-90)), // 8 move to intake 3
+            new Pose(24, 40 , Math.toRadians(-90)),  // 9 INTAKE 3
     };
 
     @Override
@@ -85,24 +82,45 @@ public abstract class PineapplesAuto extends OpMode {
 
     @Override
     public void start() {
-        state = 1;
+        state = 0;
         stopStartTime = 0;
         gateStep = 0;
-        follower.followPath(pathChains[state], true);
+        follower.followPath(pathChains[state + 1], true);
     }
 
     @Override
     public void loop() {
 
         ((DcMotorEx) Common.intaking).setVelocity(INTAKE_RPM);
-
         follower.update();
 
-        if (isShootIndex(state)) {
+        if (isShootState(state)) {
             handleShooting();
             return;
         }
 
+        if (isMoveToIntakeState(state)) {
+            // robot slows down while moving to intake
+            if (!follower.isBusy()) {
+                // reached alignment pose, start intake path
+                follower.followPath(pathChains[state + 1], true);
+            }
+            return;
+        }
+
+        if (isIntakeState(state)) {
+            // intake active, robot should be stopped
+            ((DcMotorEx) Common.intaking).setVelocity(INTAKE_RPM);
+            // wait a little before advancing
+            if (stopStartTime == 0) stopStartTime = System.currentTimeMillis();
+            if (System.currentTimeMillis() - stopStartTime >= 500) { // 0.5 sec intake
+                stopStartTime = 0;
+                advanceState();
+            }
+            return;
+        }
+
+        // advance if normal path finished
         if (!follower.isBusy()) {
             advanceState();
         }
@@ -113,26 +131,21 @@ public abstract class PineapplesAuto extends OpMode {
         DcMotorEx shoot2 = (DcMotorEx) Common.shoot2;
         DcMotorEx intake = (DcMotorEx) Common.intaking;
 
-        // ramp shooter wheel in steps like teleop
-        double[] shooterSteps = {0.88, 0.84, 0.98, 1.0};
-        double[] gatePositions = {0.71, 0.71, 0.718, -1}; // last -1 means no gate change
+        double[] shooterSteps = {1.0, 1.0, 1.0, 1.0};
+        double[] gatePositions = {0.71, 0.71, 0.718, -1};
         long[] delays = {2000, 1500, 1500, 1500};
 
         if (!follower.isBusy()) {
             if (stopStartTime == 0) stopStartTime = System.currentTimeMillis();
-
             long elapsed = System.currentTimeMillis() - stopStartTime;
-
-            int step = gateStep; // use gateStep as step counter for shooting sequence
+            int step = gateStep;
 
             if (step < shooterSteps.length) {
                 intake.setVelocity(INTAKE_RPM);
                 shoot.setVelocity(shooterSteps[step] * SHOOTER_RPM);
                 shoot2.setVelocity(-shooterSteps[step] * SHOOTER_RPM);
 
-                // wait for timeout of current step
                 if (elapsed >= delays[step]) {
-                    // move corresponding gate if needed
                     if (gatePositions[step] > 0) {
                         if (step == 0) Common.ladvance.setPosition(gatePositions[step]);
                         else if (step == 1) Common.radvance.setPosition(gatePositions[step]);
@@ -142,12 +155,11 @@ public abstract class PineapplesAuto extends OpMode {
                     gateStep++;
                 }
             } else {
-                // finished all steps, close gates
+                // finished shooting
                 Common.ladvance.setPosition(0.535);
                 Common.radvance.setPosition(0.55);
                 Common.madvance.setPosition(0.56);
 
-                // reset for next shooting point
                 stopStartTime = 0;
                 gateStep = 0;
                 advanceState();
@@ -157,33 +169,33 @@ public abstract class PineapplesAuto extends OpMode {
 
     private void advanceState() {
         state++;
-        if (state >= pathChains.length) state = 1;
+        if (state >= pathChains.length) state = pathChains.length - 1; // stop at last pose
         follower.followPath(pathChains[state], true);
     }
 
     private void buildPaths() {
         pathChains = new PathChain[poseArray.length];
         for (int i = 0; i < poseArray.length - 1; i++) {
-            boolean slow = isIntakeIndex(i + 1);
-            double speed = slow ? SLOW_SPEED : NORMAL_SPEED;
+            boolean slow = isMoveToIntakeState(i + 1) || isIntakeState(i + 1);
+            double speed = slow ? SLOW_SPEED * INTAKE_SPEED_MODIFIER : NORMAL_SPEED;
 
             pathChains[i + 1] = follower.pathBuilder()
                     .addPath(new BezierLine(poseArray[i], poseArray[i + 1]))
-                    .setLinearHeadingInterpolation(
-                            poseArray[i].getHeading(),
-                            poseArray[i + 1].getHeading(),
-                            speed
-                    )
+                    .setLinearHeadingInterpolation(poseArray[i].getHeading(), poseArray[i + 1].getHeading(), speed)
                     .build();
         }
     }
 
-    private boolean isShootIndex(int index) {
-        return index == 1 || index == 4 || index == 7;
+    private boolean isShootState(int s) {
+        return s == 1 || s == 5 || s == 9;
     }
 
-    private boolean isIntakeIndex(int index) {
-        return index == 3 || index == 6 || index == 9;
+    private boolean isMoveToIntakeState(int s) {
+        return s == 2 || s == 6 || s == 10;
+    }
+
+    private boolean isIntakeState(int s) {
+        return s == 3 || s == 7 || s == 11;
     }
 }
 
