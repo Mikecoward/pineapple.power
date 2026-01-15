@@ -134,7 +134,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
-//1
+
 @Configurable
 public abstract class PineapplesBOT extends OpMode {
     public enum Alliance { BLUE, RED }
@@ -262,8 +262,9 @@ public abstract class PineapplesBOT extends OpMode {
     public void start() {
         follower.startTeleopDrive();
     }
-     double POSITION_TOLERANCE_INCHES = 5.0; // Only update if within 5 inches
-     double HEADING_TOLERANCE_RAD = Math.toRadians(10); // Only update if within 10 degrees
+    
+     double POSITION_TOLERANCE_INCHES = 5.0; 
+     double HEADING_TOLERANCE_RAD = Math.toRadians(10); 
 
     double intakingspeed = 700;
     double shootingspeed = 0;
@@ -271,64 +272,6 @@ public abstract class PineapplesBOT extends OpMode {
     static final double TX_TOL = 1.0;                 // degrees
     static final double DEG_TO_RAD = Math.PI / 180.0;
     static final double TURN_GAIN = 0.6;              // smaller = slower
-
-    private void waitForShooter(
-            double shooterTarget,
-            long waitMS,
-            boolean useTelemetry
-    ) {
-        final double INTAKE_TARGET = 1300;
-        final double TOL_LOW  = 0.97;
-        final double TOL_HIGH = 1.03;
-
-        DcMotorEx intake = (DcMotorEx) Common.intaking;
-        DcMotorEx shoot  = (DcMotorEx) Common.shoot;
-        DcMotorEx shoot2 = (DcMotorEx) Common.shoot2;
-
-        long start = System.currentTimeMillis();
-        long redo = 0;
-        boolean good = false;
-
-        while (true) {
-            double vI  = intake.getVelocity();
-            double vS  = shoot.getVelocity();
-            double vS2 = shoot2.getVelocity();
-
-            boolean intakeOk = vI >= 0.90 * INTAKE_TARGET;
-
-            boolean shooterOk =
-                    vS  >= TOL_LOW  * shooterTarget &&
-                            vS  <= TOL_HIGH * shooterTarget &&
-                            vS2 <= -TOL_LOW  * shooterTarget &&
-                            vS2 >= -TOL_HIGH * shooterTarget;
-
-            if (good && !shooterOk) {
-                good = false;
-            }
-            if (shooterOk && !good) {
-                good  = true;
-                redo = System.currentTimeMillis();
-            }
-            if (good) {
-                if ((intakeOk && shooterOk && System.currentTimeMillis() - redo >= waitMS) ||
-                        System.currentTimeMillis() - start >= 2000) {
-                    break;
-                }
-            }
-
-            intake.setVelocity(INTAKE_TARGET);
-            shoot.setVelocity(shooterTarget);
-            shoot2.setVelocity(-1 * shooterTarget);
-
-            if (useTelemetry) {
-                telemetry.addData("shoot", vS);
-                telemetry.addData("shoot2", vS2);
-                telemetry.addData("intake", vI);
-                telemetry.update();
-            }
-        }
-    }
-
 
     boolean centric = false;
 
@@ -372,8 +315,7 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     // CASE LOGIC
-    String[] steps = {"preparing", "shootaim", "end"};
-    int curstep = 3;
+    String curstep = "stagnant";
     @Override
     public void loop() {
         follower.update();
@@ -384,9 +326,9 @@ public abstract class PineapplesBOT extends OpMode {
         if (!automatedDrive) {
 
             // GAMEPAD CONTROLS:
-            double joyY = gamepad1.right_stick_y;
-            double joyX = gamepad1.right_stick_x;
-            double joyTurn = gamepad1.left_stick_x;
+            double joyY = Math.pow(-gamepad1.right_stick_y, 2.1);
+            double joyX = Math.pow(-gamepad1.right_stick_x, 2.1);
+            double joyTurn = Math.pow(-gamepad1.left_stick_x, 4);
 
             double turnCmd;
 
@@ -394,15 +336,16 @@ public abstract class PineapplesBOT extends OpMode {
             turnCmd = -gamepad1.left_stick_x;
 
             follower.setTeleOpDrive(
-                    -gamepad1.right_stick_y,
-                    -gamepad1.right_stick_x,
-                    turnCmd,
+                    joyX,
+                    joyY,
+                    joyTurn,
                     false // robot centric
             );
 
         }
 
         // CLOSEST SHOOTER
+        
         if (gamepad1.aWasPressed() && !automatedDrive) {
             Pose p = follower.getPose();
             int distshooting1, distshooting2;
@@ -473,41 +416,36 @@ public abstract class PineapplesBOT extends OpMode {
         // _----------------- SHOOTING LOGIC --------------------------_
 
         if (!gamepad1.left_bumper) {
-            curstep = 3;
-        } else if (curstep == 3) {
-            curstep = 1;
+            curstep = "stagnant";
+        } else {
+            curstep = "shooting";
         }
 
-
-
-
-
-
         //add in launch zone later
-        if (curstep == 1) {
+        if ("shooting".equals(curstep)) {
 
             double turnCmd = 0;
-            if (gamepad1.right_bumper) {
-                LLResult r = limelight.getLatestResult();
-                if (r != null && r.isValid() && Math.abs(r.getTx()) > AIM_TX_TOL_DEG) {
-                    turnCmd = limelightTurnCmd();
-                }
-            }
+            LLResult r = limelight.getLatestResult();
+            if (r != null && r.isValid() && Math.abs(r.getTx()) > AIM_TX_TOL_DEG) {
+                turnCmd = limelightTurnCmd();
 
-            follower.setTeleOpDrive(
+                follower.setTeleOpDrive(
                     0,
                     0,
                     turnCmd,
-                    false // robot centric
-            );
-
-            shootingspeed = 1000;
-            // check tolerances and if shooting speed is up to par
-        } else if (curstep == 2) {
-            if (Common.madvance.getPosition() != .725) {
-                Common.madvance.setPosition(.725);
+                    false 
+                );
+            } else if (r != null && r.isValid() && Math.abs(r.getTx()) < AIM_TX_TOL_DEG && shootingspeed != 1000) {
+                shootingspeed = 1000;
             }
-        } else if (curstep == 3) {
+            
+            if (((DcMotorEx) Common.shoot).getVelocity() > 900 && ((DcMotorEx) Common.shoot2).getVelocity() < -900) {
+                // check tolerances and if shooting speed is up to par
+                if (Common.madvance.getPosition() != .725) {
+                    Common.madvance.setPosition(.725);
+                }
+            }
+        } else if ("stagnant".equals(curstep)) {
             intakingspeed = 500;
             shootingspeed = 0;
 
