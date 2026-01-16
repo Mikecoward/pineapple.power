@@ -16,65 +16,76 @@ public abstract class PineapplesAuto extends OpMode {
     public enum Alliance { BLUE, RED }
     protected abstract Alliance getAlliance();
 
+    /* ================= CONSTANTS ================= */
+
     private static final double FIELD_SIZE_IN = 144.0;
 
-    protected Pose mirrorBlueToRed(Pose bluePose) {
+    private static final double NORMAL_SPEED = 0.18;
+    private static final double SLOW_SPEED = 0.10; // slower for intake accuracy
+
+    private static final double INTAKE_RPM = 1300;
+
+    private static final long SHOOT_WAIT_MS = 700;
+    private static final long INTAKE_WAIT_MS = 900;
+    private static final long SECOND_INTAKE_EXTRA_MS = 500;
+
+    /* ================= POSES ================= */
+
+    protected static final Pose[] BLUE_POSES = {
+            new Pose(21, 125, Math.toRadians(145)), // 0 start
+
+            new Pose(58, 85, Math.toRadians(-45)),  // 1 shoot 1
+            new Pose(23, 120, Math.toRadians(-90)), // 2 intake move
+            new Pose(23, 85, Math.toRadians(-90)),  // 3 intake 1
+
+            new Pose(58, 85, Math.toRadians(-45)),  // 4 shoot 2
+            new Pose(21, 120, Math.toRadians(-90)), // 5 intake move
+            new Pose(21, 58, Math.toRadians(-90)),  // 6 intake 2 (PROBLEM POINT)
+
+            new Pose(58, 85, Math.toRadians(-45)),  // 7 shoot 3
+            new Pose(21, 120, Math.toRadians(-90)), // 8 intake move
+            new Pose(21, 40, Math.toRadians(-90))   // 9 intake 3
+    };
+
+    /* ================= INTERNAL ================= */
+
+    private Pose[] poses;
+    private PathChain[] paths;
+    private Follower follower;
+
+    private int state = 0;
+    private long stateStartTime = 0;
+    private boolean arrived = false;
+    private int gateStep = 0;
+
+    /* ================= MIRROR ================= */
+
+    protected Pose mirrorBlueToRed(Pose p) {
         return new Pose(
-                FIELD_SIZE_IN - bluePose.getX(),
-                bluePose.getY(),
-                Math.PI - bluePose.getHeading()
+                FIELD_SIZE_IN - p.getX(),
+                p.getY(),
+                Math.PI - p.getHeading()
         );
     }
 
-    /* ---------------- PATHING ---------------- */
-    private Follower follower;
-    private PathChain[] pathChains;
-    private Pose[] poseArray;
-
-    private int state = 0; // start at state 0
-    private long stopStartTime = 0;
-    private int gateStep = 0;
-
-    /* ---------------- SPEEDS ---------------- */
-    private static final double NORMAL_SPEED = 0.18;
-    private static final double SLOW_SPEED = 0.12;
-    private static final double INTAKE_SPEED_MODIFIER = 0.85;
-
-    /* ---------------- MOTOR SPEEDS ---------------- */
-    private static final double INTAKE_RPM = 1300;
-    private static final double SHOOTER_RPM = 1325; // perfect speed for all balls
-
-    /* ---------------- POSES ---------------- */
-    protected static final Pose[] poseArrayBlue = {
-            new Pose(21, 125, Math.toRadians(145)), // 0 start
-            new Pose(58, 85 , Math.toRadians(-45)),  // 1 SHOOT 1
-            new Pose(24, 120 , Math.toRadians(-90)), // 2 move to intake 1
-            new Pose(24, 85 , Math.toRadians(-90)),  // 3 INTAKE 1
-            new Pose(58, 85 , Math.toRadians(-45)),  // 4 SHOOT 2
-            new Pose(24, 120 , Math.toRadians(-90)), // 5 move to intake 2
-            new Pose(24, 58 , Math.toRadians(-90)),  // 6 INTAKE 2
-            new Pose(58, 85 , Math.toRadians(-45)),  // 7 SHOOT 3
-            new Pose(24, 120 , Math.toRadians(-90)), // 8 move to intake 3
-            new Pose(24, 40 , Math.toRadians(-90)),  // 9 INTAKE 3
-    };
+    /* ================= INIT ================= */
 
     @Override
     public void init() {
         Common.configRobot(hardwareMap, false);
 
-        poseArray = new Pose[poseArrayBlue.length];
-        for (int i = 0; i < poseArrayBlue.length; i++) {
-            poseArray[i] = (getAlliance() == Alliance.BLUE)
-                    ? poseArrayBlue[i]
-                    : mirrorBlueToRed(poseArrayBlue[i]);
+        poses = new Pose[BLUE_POSES.length];
+        for (int i = 0; i < BLUE_POSES.length; i++) {
+            poses[i] = (getAlliance() == Alliance.BLUE)
+                    ? BLUE_POSES[i]
+                    : mirrorBlueToRed(BLUE_POSES[i]);
         }
 
         follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(poseArray[0]);
+        follower.setStartingPose(poses[0]);
 
         buildPaths();
 
-        // close gates at start
         Common.ladvance.setPosition(0.535);
         Common.madvance.setPosition(0.56);
         Common.radvance.setPosition(0.55);
@@ -82,120 +93,134 @@ public abstract class PineapplesAuto extends OpMode {
 
     @Override
     public void start() {
-        state = 0;
-        stopStartTime = 0;
-        gateStep = 0;
-        follower.followPath(pathChains[state + 1], true);
+        state = 1;
+        goToState(state);
     }
+
+    /* ================= LOOP ================= */
 
     @Override
     public void loop() {
-
-        ((DcMotorEx) Common.intaking).setVelocity(INTAKE_RPM);
         follower.update();
+        ((DcMotorEx) Common.intaking).setVelocity(INTAKE_RPM);
 
         if (isShootState(state)) {
-            handleShooting();
-            return;
-        }
-
-        if (isMoveToIntakeState(state)) {
-            // robot slows down while moving to intake
-            if (!follower.isBusy()) {
-                // reached alignment pose, start intake path
-                follower.followPath(pathChains[state + 1], true);
-            }
+            handleShoot();
             return;
         }
 
         if (isIntakeState(state)) {
-            // intake active, robot should be stopped
-            ((DcMotorEx) Common.intaking).setVelocity(INTAKE_RPM);
-            // wait a little before advancing
-            if (stopStartTime == 0) stopStartTime = System.currentTimeMillis();
-            if (System.currentTimeMillis() - stopStartTime >= 500) { // 0.5 sec intake
-                stopStartTime = 0;
-                advanceState();
-            }
+            handleIntake();
             return;
         }
 
-        // advance if normal path finished
-        if (!follower.isBusy()) {
-            advanceState();
+        // movement state
+        if (!arrived && !follower.isBusy()) {
+            arrived = true;
+            stateStartTime = System.currentTimeMillis();
+        }
+
+        if (arrived && System.currentTimeMillis() - stateStartTime > 200) {
+            advance();
         }
     }
 
-    private void handleShooting() {
-        DcMotorEx shoot  = (DcMotorEx) Common.shoot;
-        DcMotorEx shoot2 = (DcMotorEx) Common.shoot2;
-        DcMotorEx intake = (DcMotorEx) Common.intaking;
+    /* ================= SHOOT ================= */
 
-        double[] shooterSteps = {1.0, 1.0, 1.0, 1.0};
-        double[] gatePositions = {0.71, 0.71, 0.718, -1};
-        long[] delays = {2000, 1500, 1500, 1500};
+    private void handleShoot() {
+        if (!arrived && !follower.isBusy()) {
+            arrived = true;
+            stateStartTime = System.currentTimeMillis();
+            return;
+        }
 
-        if (!follower.isBusy()) {
-            if (stopStartTime == 0) stopStartTime = System.currentTimeMillis();
-            long elapsed = System.currentTimeMillis() - stopStartTime;
-            int step = gateStep;
+        if (!arrived) return;
 
-            if (step < shooterSteps.length) {
-                intake.setVelocity(INTAKE_RPM);
-                shoot.setVelocity(shooterSteps[step] * SHOOTER_RPM);
-                shoot2.setVelocity(-shooterSteps[step] * SHOOTER_RPM);
+        if (System.currentTimeMillis() - stateStartTime < SHOOT_WAIT_MS) return;
 
-                if (elapsed >= delays[step]) {
-                    if (gatePositions[step] > 0) {
-                        if (step == 0) Common.ladvance.setPosition(gatePositions[step]);
-                        else if (step == 1) Common.radvance.setPosition(gatePositions[step]);
-                        else if (step == 2) Common.madvance.setPosition(gatePositions[step]);
-                    }
-                    stopStartTime = System.currentTimeMillis();
-                    gateStep++;
-                }
-            } else {
-                // finished shooting
-                Common.ladvance.setPosition(0.535);
-                Common.radvance.setPosition(0.55);
-                Common.madvance.setPosition(0.56);
+        DcMotorEx s1 = (DcMotorEx) Common.shoot;
+        DcMotorEx s2 = (DcMotorEx) Common.shoot2;
 
-                stopStartTime = 0;
-                gateStep = 0;
-                advanceState();
-            }
+        double rpm = 1250;
+        s1.setVelocity(rpm);
+        s2.setVelocity(-rpm);
+
+        if (gateStep == 0) {
+            Common.ladvance.setPosition(0.71);
+        } else if (gateStep == 1) {
+            Common.radvance.setPosition(0.71);
+        } else if (gateStep == 2) {
+            Common.madvance.setPosition(0.718); // MIDDLE GATE (LAST)
+        } else {
+            Common.ladvance.setPosition(0.535);
+            Common.radvance.setPosition(0.55);
+            Common.madvance.setPosition(0.56);
+            gateStep = 0;
+            advance();
+            return;
+        }
+
+        gateStep++;
+        stateStartTime = System.currentTimeMillis();
+    }
+
+    /* ================= INTAKE ================= */
+
+    private void handleIntake() {
+        if (!arrived && !follower.isBusy()) {
+            arrived = true;
+            stateStartTime = System.currentTimeMillis();
+        }
+
+        if (!arrived) return;
+
+        long wait = INTAKE_WAIT_MS;
+        if (state == 6) wait += SECOND_INTAKE_EXTRA_MS;
+
+        if (System.currentTimeMillis() - stateStartTime >= wait) {
+            advance();
         }
     }
 
-    private void advanceState() {
+    /* ================= STATE ================= */
+
+    private void advance() {
         state++;
-        if (state >= pathChains.length) state = pathChains.length - 1; // stop at last pose
-        follower.followPath(pathChains[state], true);
+        if (state >= paths.length) return;
+        goToState(state);
     }
 
-    private void buildPaths() {
-        pathChains = new PathChain[poseArray.length];
-        for (int i = 0; i < poseArray.length - 1; i++) {
-            boolean slow = isMoveToIntakeState(i + 1) || isIntakeState(i + 1);
-            double speed = slow ? SLOW_SPEED * INTAKE_SPEED_MODIFIER : NORMAL_SPEED;
-
-            pathChains[i + 1] = follower.pathBuilder()
-                    .addPath(new BezierLine(poseArray[i], poseArray[i + 1]))
-                    .setLinearHeadingInterpolation(poseArray[i].getHeading(), poseArray[i + 1].getHeading(), speed)
-                    .build();
-        }
+    private void goToState(int s) {
+        arrived = false;
+        gateStep = 0;
+        follower.followPath(paths[s], true);
     }
+
+    /* ================= HELPERS ================= */
 
     private boolean isShootState(int s) {
-        return s == 1 || s == 5 || s == 9;
-    }
-
-    private boolean isMoveToIntakeState(int s) {
-        return s == 2 || s == 6 || s == 10;
+        return s == 1 || s == 4 || s == 7;
     }
 
     private boolean isIntakeState(int s) {
-        return s == 3 || s == 7 || s == 11;
+        return s == 3 || s == 6 || s == 9;
+    }
+
+    private void buildPaths() {
+        paths = new PathChain[poses.length];
+        for (int i = 1; i < poses.length; i++) {
+            boolean slow = isIntakeState(i);
+            double speed = slow ? SLOW_SPEED : NORMAL_SPEED;
+
+            paths[i] = follower.pathBuilder()
+                    .addPath(new BezierLine(poses[i - 1], poses[i]))
+                    .setLinearHeadingInterpolation(
+                            poses[i - 1].getHeading(),
+                            poses[i].getHeading(),
+                            speed
+                    )
+                    .build();
+        }
     }
 }
 

@@ -262,11 +262,11 @@ public abstract class PineapplesBOT extends OpMode {
     public void start() {
         follower.startTeleopDrive();
     }
-    
-     double POSITION_TOLERANCE_INCHES = 5.0; 
-     double HEADING_TOLERANCE_RAD = Math.toRadians(10); 
 
-    double intakingspeed = 700;
+    double POSITION_TOLERANCE_INCHES = 5.0;
+    double HEADING_TOLERANCE_RAD = Math.toRadians(10);
+
+    double intakingspeed = 1200;
     double shootingspeed = 0;
 
     static final double TX_TOL = 1.0;                 // degrees
@@ -345,7 +345,7 @@ public abstract class PineapplesBOT extends OpMode {
         }
 
         // CLOSEST SHOOTER
-        
+
         if (gamepad1.aWasPressed() && !automatedDrive) {
             Pose p = follower.getPose();
             int distshooting1, distshooting2;
@@ -430,23 +430,24 @@ public abstract class PineapplesBOT extends OpMode {
                 turnCmd = limelightTurnCmd();
 
                 follower.setTeleOpDrive(
-                    0,
-                    0,
-                    turnCmd,
-                    false 
+                        0,
+                        0,
+                        turnCmd,
+                        false
                 );
             } else if (r != null && r.isValid() && Math.abs(r.getTx()) < AIM_TX_TOL_DEG && shootingspeed != 1000) {
-                shootingspeed = 1000;
+                shootingspeed = 1300;
             }
-            
-            if (((DcMotorEx) Common.shoot).getVelocity() > 900 && ((DcMotorEx) Common.shoot2).getVelocity() < -900) {
+
+            if (((DcMotorEx) Common.shoot).getVelocity() > 1260 && ((DcMotorEx) Common.shoot).getVelocity() < 1340 && ((DcMotorEx) Common.shoot2).getVelocity() < -1260 && ((DcMotorEx) Common.shoot2).getVelocity() > -1340) {
                 // check tolerances and if shooting speed is up to par
+                telemetry.addLine("READYYYY");
                 if (Common.madvance.getPosition() != .725) {
                     Common.madvance.setPosition(.725);
                 }
             }
         } else if ("stagnant".equals(curstep)) {
-            intakingspeed = 500;
+            intakingspeed = 1200;
             shootingspeed = 0;
 
             if (Common.radvance.getPosition() != .55) {
@@ -518,6 +519,7 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.addData("aiming", aiming);
 
 
+        telemetry.addData("curstep",curstep);
         telemetry.update();
 
 
