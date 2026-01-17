@@ -278,8 +278,8 @@ public abstract class PineapplesBOT extends OpMode {
     // LIMELIGHT CODE:
     // --- Limelight aim (hold right bumper) ---
     static final double AIM_TX_TOL_DEG = 1.0;     // stop when |tx| <= this
-    static final double AIM_KP = 0.02;            // scalar: turnPower = KP * tx
-    static final double AIM_MAX_TURN = 0.18;      // keep it slow
+    static final double AIM_KP = 0.008;            // scalar: turnPower = KP * tx
+    static final double AIM_MAX_TURN = 0.10;      // keep it slow
     static final double AIM_MIN_TURN = 0.01;      // overcome stiction; set 0 if too jumpy
     static boolean AIM_INVERT = true;            // flip if it turns the wrong way
 
@@ -317,7 +317,7 @@ public abstract class PineapplesBOT extends OpMode {
     @Override
     public void loop() {
         follower.update();
-        if (gamepad1.backWasPressed()) {
+        if (gamepad1.left_trigger > 0.8) {
             updatePoseFromLL();
         }
         telemetry.clear();
@@ -326,10 +326,9 @@ public abstract class PineapplesBOT extends OpMode {
         if (!automatedDrive && !"shooting".equals(curstep)) {
 
             // GAMEPAD CONTROLS:
-            double joyY = Math.pow(-gamepad1.right_stick_y, 2.1);
-            double joyX = Math.pow(-gamepad1.right_stick_x, 2.1);
-            double joyTurn = Math.pow(-gamepad1.left_stick_x, 3);
-
+            double joyY = expo(-gamepad1.right_stick_y, 2.1);
+            double joyX = expo(-gamepad1.right_stick_x, 2.1);
+            double joyTurn = expo(-gamepad1.left_stick_x, 3.0);
 
             follower.setTeleOpDrive(
                     joyX,
@@ -432,14 +431,22 @@ public abstract class PineapplesBOT extends OpMode {
                         false
                 );
             } else if (r != null && r.isValid() && Math.abs(r.getTx()) < AIM_TX_TOL_DEG && shootingspeed != 1000) {
-                shootingspeed = 1300;
+                shootingspeed = 1750;
+
+                follower.setTeleOpDrive(
+                        0,
+                        0,
+                        turnCmd,
+                        false
+                );
+
             }
 
-            if (((DcMotorEx) Common.shoot).getVelocity() > 1260 && ((DcMotorEx) Common.shoot).getVelocity() < 1340 && ((DcMotorEx) Common.shoot2).getVelocity() < -1260 && ((DcMotorEx) Common.shoot2).getVelocity() > -1340) {
+            if (((DcMotorEx) Common.shoot).getVelocity() > 1360 && ((DcMotorEx) Common.shoot).getVelocity() < 1440 && ((DcMotorEx) Common.shoot2).getVelocity() < -1360 && ((DcMotorEx) Common.shoot2).getVelocity() > -1440) {
                 // check tolerances and if shooting speed is up to par
                 telemetry.addLine("READYYYY");
-                if (Common.madvance.getPosition() != .725) {
-                    Common.madvance.setPosition(.725);
+                if (Common.madvance.getPosition() != .71    ) {
+                    Common.madvance.setPosition(.71);
                 }
             }
         } else if ("stagnant".equals(curstep)) {
@@ -547,6 +554,10 @@ public abstract class PineapplesBOT extends OpMode {
         } else {
             telemetry.addLine("No LL Data");
         }
+    }
+
+    private double expo(double input, double exponent) {
+        return Math.copySign(Math.pow(Math.abs(input), exponent), input);
     }
 
     protected static void sleep(int ms) {
