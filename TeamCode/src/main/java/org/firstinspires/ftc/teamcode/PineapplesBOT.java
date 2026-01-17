@@ -280,9 +280,7 @@ public abstract class PineapplesBOT extends OpMode {
     static final double AIM_TX_TOL_DEG = 1.0;     // stop when |tx| <= this
     static final double AIM_KP = 0.02;            // scalar: turnPower = KP * tx
     static final double AIM_MAX_TURN = 0.18;      // keep it slow
-    static final double AIM_MIN_TURN = 0.04;      // overcome stiction; set 0 if too jumpy
-    static final double AIM_TIMEOUT_S = 0.8;      // safety timeout per hold
-
+    static final double AIM_MIN_TURN = 0.01;      // overcome stiction; set 0 if too jumpy
     static boolean AIM_INVERT = true;            // flip if it turns the wrong way
 
     boolean aiming = false;
@@ -319,21 +317,19 @@ public abstract class PineapplesBOT extends OpMode {
     @Override
     public void loop() {
         follower.update();
-
+        if (gamepad1.backWasPressed()) {
+            updatePoseFromLL();
+        }
         telemetry.clear();
         //1
 
-        if (!automatedDrive) {
+        if (!automatedDrive && !"shooting".equals(curstep)) {
 
             // GAMEPAD CONTROLS:
             double joyY = Math.pow(-gamepad1.right_stick_y, 2.1);
             double joyX = Math.pow(-gamepad1.right_stick_x, 2.1);
-            double joyTurn = Math.pow(-gamepad1.left_stick_x, 4);
+            double joyTurn = Math.pow(-gamepad1.left_stick_x, 3);
 
-            double turnCmd;
-
-            // default: driver turn
-            turnCmd = -gamepad1.left_stick_x;
 
             follower.setTeleOpDrive(
                     joyX,
@@ -501,10 +497,6 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.addData("-- shooting2 motor velocity", ((DcMotorEx) Common.shoot2).getVelocity());
         telemetry.addData("-- intaking motor velocity", ((DcMotorEx) Common.intaking).getVelocity());
 
-        telemetry.addData("LF vel", ((DcMotorEx) Common.leftFrontDrive).getVelocity());
-        telemetry.addData("LB vel", ((DcMotorEx) Common.leftBackDrive).getVelocity());
-        telemetry.addData("RF vel", ((DcMotorEx) Common.rightFrontDrive).getVelocity());
-        telemetry.addData("RB vel", ((DcMotorEx) Common.rightBackDrive).getVelocity());
         telemetry.addData("lifting", Common.lifting.getCurrentPosition());
 
         telemetry.addLine("------ servos ----");
@@ -523,6 +515,38 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.update();
 
 
+    }
+    protected Pose getRobotPoseFromCamera() {
+        LLResult result = limelight.getLatestResult();
+        if (result == null || !result.isValid()) return null;
+
+        Pose3D llpose = result.getBotpose();
+        if (llpose == null) return null;
+
+        double xMeters = llpose.getPosition().x;
+        double yMeters = llpose.getPosition().y;
+
+        double xInches = 72 + DistanceUnit.METER.toInches(yMeters);
+        double yInches = 72 - DistanceUnit.METER.toInches(xMeters);
+
+        YawPitchRollAngles ypr = llpose.getOrientation();
+        double headingRad = AngleUnit.normalizeRadians(ypr.getYaw(AngleUnit.RADIANS) - Math.toRadians(90));
+
+        return new Pose(xInches, yInches, headingRad);
+    }
+
+    protected void updatePoseFromLL() {
+        Pose llPose = getRobotPoseFromCamera();
+        if (llPose != null) {
+            follower.setPose(llPose);
+            telemetry.addLine("LL Pose Applied");
+            telemetry.addData("LL X/Y/H", "%4.2f, %4.2f, %4.1f°",
+                    llPose.getX(),
+                    llPose.getY(),
+                    Math.toDegrees(llPose.getHeading()));
+        } else {
+            telemetry.addLine("No LL Data");
+        }
     }
 
     protected static void sleep(int ms) {
