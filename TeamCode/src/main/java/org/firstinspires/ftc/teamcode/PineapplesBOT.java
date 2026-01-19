@@ -210,6 +210,10 @@ public abstract class PineapplesBOT extends OpMode {
 
     double DRIVE_TICKS_PER_SEC_MAX = 2800.0;
 
+    double MIDDLE_BASE_POSITION = 0.57;
+    double RIGHT_BASE_POSITION = 0.77;
+    double LEFT_BASE_POSITION = 0.77; // 70
+
 
     int targetPosition = 0;
     @Override
@@ -249,9 +253,9 @@ public abstract class PineapplesBOT extends OpMode {
         limelight.start();
 
 
-        Common.radvance.setPosition(.55);
-        Common.madvance.setPosition(.56);
-        Common.ladvance.setPosition(.535);
+        Common.radvance.setPosition(RIGHT_BASE_POSITION);
+        Common.madvance.setPosition(MIDDLE_BASE_POSITION);
+        Common.ladvance.setPosition(LEFT_BASE_POSITION);
 
         targetPosition = 0;
         Common.lifting.setTargetPosition(targetPosition);
@@ -278,9 +282,9 @@ public abstract class PineapplesBOT extends OpMode {
     // LIMELIGHT CODE:
     // --- Limelight aim (hold right bumper) ---
     static final double AIM_TX_TOL_DEG = 1.0;     // stop when |tx| <= this
-    static final double AIM_KP = 0.008;            // scalar: turnPower = KP * tx
+    static final double AIM_KP = 0.002;            // scalar: turnPower = KP * tx
     static final double AIM_MAX_TURN = 0.10;      // keep it slow
-    static final double AIM_MIN_TURN = 0.01;      // overcome stiction; set 0 if too jumpy
+    static final double AIM_MIN_TURN = 0.00;      // overcome stiction; set 0 if too jumpy
     static boolean AIM_INVERT = true;            // flip if it turns the wrong way
 
     boolean aiming = false;
@@ -291,7 +295,11 @@ public abstract class PineapplesBOT extends OpMode {
         if (r == null || !r.isValid()) return 0.0;
 
         double tx = r.getTx(); // degrees
-        if (Math.abs(tx) <= AIM_TX_TOL_DEG) return 0.0;
+        double error = tx;
+
+        if (Math.abs(error) < AIM_TX_TOL_DEG) {
+            error = 0; // only kill *small* noise
+        }
 
         double turn = AIM_KP * tx;
 
@@ -310,10 +318,20 @@ public abstract class PineapplesBOT extends OpMode {
     static final int LIFT_UP_POS = 400;
     static final int LIFT_DOWN_POS = 0;
 
-
+    boolean startingseq = false;
 
     // CASE LOGIC
     String curstep = "stagnant";
+    boolean shooterOK = false;
+
+    boolean firstTimeCheckDone = false;
+    long shooterStableSince = 0;
+    static final int SHOOTER_TOL = 10;      // +/- 40 RPM tolerance
+    static final int SHOOTER_STABLE_MS = 300; // must be in range for 300 ms
+
+    boolean limelightdone = false;
+
+    long a = 0;
     @Override
     public void loop() {
         follower.update();
@@ -331,10 +349,11 @@ public abstract class PineapplesBOT extends OpMode {
             double joyTurn = expo(-gamepad1.left_stick_x, 3.0);
 
             follower.setTeleOpDrive(
-                    joyX,
                     joyY,
+                    joyX,
                     joyTurn,
-                    false // robot centric
+                    false
+
             );
 
         }
@@ -419,9 +438,28 @@ public abstract class PineapplesBOT extends OpMode {
         //add in launch zone later
         if ("shooting".equals(curstep)) {
 
+
+            if (shootingspeed == 0) {
+                Common.radvance.setPosition(0.78);
+                Common.ladvance.setPosition(0.78);
+                Common.madvance.setPosition(0.52);
+                shooterOK = false;
+                shootingspeed = 1950;
+                limelightdone = true;
+            }
+
             double turnCmd = 0;
             LLResult r = limelight.getLatestResult();
+
+
+
+            /*
+            if (r.isValid()) {
+                telemetry.addData("hi", r.getTx());
+            }
+
             if (r != null && r.isValid() && Math.abs(r.getTx()) > AIM_TX_TOL_DEG) {
+
                 turnCmd = limelightTurnCmd();
 
                 follower.setTeleOpDrive(
@@ -430,38 +468,91 @@ public abstract class PineapplesBOT extends OpMode {
                         turnCmd,
                         false
                 );
-            } else if (r != null && r.isValid() && Math.abs(r.getTx()) < AIM_TX_TOL_DEG && shootingspeed != 1000) {
-                shootingspeed = 1750;
-
+            } else if (r != null && r.isValid() && Math.abs(r.getTx()) < AIM_TX_TOL_DEG && shootingspeed != 0) {
+                shootingspeed = 1950;
+                limelightdone = true;
                 follower.setTeleOpDrive(
                         0,
                         0,
-                        turnCmd,
+                        0,
                         false
                 );
 
             }
+            */
 
-            if (((DcMotorEx) Common.shoot).getVelocity() > 1360 && ((DcMotorEx) Common.shoot).getVelocity() < 1440 && ((DcMotorEx) Common.shoot2).getVelocity() < -1360 && ((DcMotorEx) Common.shoot2).getVelocity() > -1440) {
-                // check tolerances and if shooting speed is up to par
+
+
+
+            double shooterVel1 = ((DcMotorEx) Common.shoot).getVelocity();
+            double shooterVel2 = ((DcMotorEx) Common.shoot2).getVelocity();
+
+            if (!firstTimeCheckDone && limelightdone) {
+                // first-time check: ensure shooter is stable for 300 ms
+                boolean inRange = Math.abs(shooterVel1 - shootingspeed) <= SHOOTER_TOL
+                        && Math.abs(shooterVel2 + shootingspeed) <= SHOOTER_TOL; // shoot2 reversed
+
+                if (inRange) {
+                    if (shooterStableSince == 0) {
+                        shooterStableSince = System.currentTimeMillis();
+                    }
+
+                    if (System.currentTimeMillis() - shooterStableSince >= SHOOTER_STABLE_MS) {
+                        shooterOK = true;
+                        firstTimeCheckDone = true;  // first-time stable achieved
+                    }
+                } else {
+                    shooterStableSince = 0; // reset timer if out of range
+                }
+            } else if (limelightdone) {
+                // after first time, just mark shooter as OK immediately
+                shooterOK = true;
+            }
+
+            // if shooterOK is true, proceed with servo sequence
+            if (shooterOK) {
+                if (!startingseq) {
+                    startingseq = true;
+                    a = System.currentTimeMillis();
+                }
+
                 telemetry.addLine("READYYYY");
-                if (Common.madvance.getPosition() != .71    ) {
-                    Common.madvance.setPosition(.71);
+
+                // push middle servo up
+                if (Common.madvance.getPosition() != 0.72) {
+                    Common.madvance.setPosition(0.725);
+                    shootingspeed -= 50;
+                }
+
+                // then other servos after delays
+                if (System.currentTimeMillis() - a > 1500) {
+                    Common.radvance.setPosition(0.62);
+
+                }
+                if (System.currentTimeMillis() - a > 3000) {
+                    Common.ladvance.setPosition(0.62);
+
                 }
             }
+
+
         } else if ("stagnant".equals(curstep)) {
             intakingspeed = 1200;
             shootingspeed = 0;
 
-            if (Common.radvance.getPosition() != .55) {
-                Common.radvance.setPosition(.55);
+            if (Common.radvance.getPosition() != RIGHT_BASE_POSITION) {
+                Common.radvance.setPosition(RIGHT_BASE_POSITION);
             }
-            if (Common.madvance.getPosition() != .56) {
-                Common.madvance.setPosition(.56);
+            if (Common.madvance.getPosition() != MIDDLE_BASE_POSITION) {
+                Common.madvance.setPosition(MIDDLE_BASE_POSITION);
             }
-            if (Common.ladvance.getPosition() != .535) {
-                Common.ladvance.setPosition(.535);
+            if (Common.ladvance.getPosition() != LEFT_BASE_POSITION) {
+                Common.ladvance.setPosition(LEFT_BASE_POSITION);
             }
+
+            startingseq = false;
+            firstTimeCheckDone = false;
+
 
         }
 

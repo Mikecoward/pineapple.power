@@ -135,6 +135,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @TeleOp(name="AS-first robot-.2", group="Robot")
+@Disabled
 
 public class PpBot extends LinearOpMode {
 

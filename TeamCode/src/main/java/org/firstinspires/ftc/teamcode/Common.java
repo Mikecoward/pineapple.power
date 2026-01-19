@@ -140,6 +140,7 @@ class Common {
         radvance = hardwareMap.servo.get("radvance");
         madvance = hardwareMap.servo.get("madvance");
         ladvance = hardwareMap.servo.get("ladvance");
+        radvance.setDirection(Servo.Direction.REVERSE);
 
         intaking  = hardwareMap.dcMotor.get("intake");
         intaking.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
