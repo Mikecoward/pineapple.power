@@ -23,7 +23,7 @@ public class PineapplesAutoRed extends OpMode {
     private static final double INTAKE_RPM = 1300;
     private static final double SHOOTER_RPM = 1400;
 
-    private static final long PRE_SHOOT_DELAY_MS = 1000;
+    private static final long PRE_SHOOT_DELAY_MS = 500;
     private static final long SHOOT_WAIT_MS = 700;
     private static final long INTAKE_WAIT_MS = 900;
     private static final long SECOND_INTAKE_EXTRA_MS = 500;
@@ -58,6 +58,15 @@ public class PineapplesAutoRed extends OpMode {
     private int gateStep = 0;
     private boolean preShootDelayDone = false;
 
+
+    private void startShooter(){
+        ((DcMotorEx) Common.shoot).setVelocity(SHOOTER_RPM);
+        ((DcMotorEx) Common.shoot2).setVelocity(-SHOOTER_RPM);
+    }
+    private void stopShooter(){
+        ((DcMotorEx) Common.shoot).setVelocity(0);
+        ((DcMotorEx) Common.shoot2).setVelocity(0);
+    }
     /* ================= INIT ================= */
 
     @Override
@@ -135,9 +144,11 @@ public class PineapplesAutoRed extends OpMode {
 
         switch (gateStep) {
             case 0: Common.madvance.setPosition(0.718); break;
-            case 1: Common.ladvance.setPosition(0.66);  break;
-            case 2: Common.madvance.setPosition(0.718); break;
-            case 3: Common.radvance.setPosition(0.66);  break;
+            case 1: Common.ladvance.setPosition(0.58);
+                    break;
+            case 2: Common.radvance.setPosition(0.58);
+                    Common.ladvance.setPosition(0.58);
+            break;
             default:
                 Common.ladvance.setPosition(0.77);
                 Common.radvance.setPosition(0.77);
@@ -181,8 +192,17 @@ public class PineapplesAutoRed extends OpMode {
         arrived = false;
         gateStep = 0;
         preShootDelayDone = false;
+
+        if (isShootState(s)) {
+            startShooter();
+        } else {
+            stopShooter();
+        }
+
         follower.followPath(paths[s], true);
     }
+
+
 
     /* ================= HELPERS ================= */
 
