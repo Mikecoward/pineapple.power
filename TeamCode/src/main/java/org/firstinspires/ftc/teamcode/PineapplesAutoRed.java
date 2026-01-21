@@ -23,7 +23,7 @@ public class PineapplesAutoRed extends OpMode {
     private static final double INTAKE_RPM = 1300;
     private static final double SHOOTER_RPM = 1400;
 
-    private static final long PRE_SHOOT_DELAY_MS = 500;
+    private static final long PRE_SHOOT_DELAY_MS = 1000;
     private static final long SHOOT_WAIT_MS = 700;
     private static final long INTAKE_WAIT_MS = 900;
     private static final long SECOND_INTAKE_EXTRA_MS = 500;

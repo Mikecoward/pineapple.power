@@ -285,10 +285,10 @@ public abstract class PineapplesBOT extends OpMode {
 
     // LIMELIGHT CODE:
     // --- Limelight aim (hold right bumper) ---
-    static final double AIM_TX_TOL_DEG = 1.0;     // stop when |tx| <= this
+    static final double AIM_TX_TOL_DEG = 2.0;     // stop when |tx| <= this
     static final double AIM_KP = 0.002;            // scalar: turnPower = KP * tx
-    static final double AIM_MAX_TURN = 0.10;      // keep it slow
-    static final double AIM_MIN_TURN = 0.00;      // overcome stiction; set 0 if too jumpy
+    static final double AIM_MAX_TURN = 0.18;      // keep it slow
+    static final double AIM_MIN_TURN = 0.04;      // overcome stiction; set 0 if too jumpy
     static boolean AIM_INVERT = true;            // flip if it turns the wrong way
 
     long aimStartMs = 0;
@@ -302,6 +302,7 @@ public abstract class PineapplesBOT extends OpMode {
 
         if (Math.abs(error) < AIM_TX_TOL_DEG) {
             error = 0; // only kill *small* noise
+            return 0;
         }
 
         double turn = AIM_KP * tx;
@@ -329,11 +330,8 @@ public abstract class PineapplesBOT extends OpMode {
 
     boolean firstTimeCheckDone = false;
     long shooterStableSince = 0;
-    static final int SHOOTER_TOL = 10;      // +/- 40 RPM tolerance
+    static final int SHOOTER_TOL = 20;      // +/- 40 RPM tolerance
     static final int SHOOTER_STABLE_MS = 250; // must be in range for 300 ms
-
-    boolean limelightdone = false;
-
 
 
     static final double M_UP = 0.715;
@@ -360,11 +358,17 @@ public abstract class PineapplesBOT extends OpMode {
             "mup",
             //"mdown
             //"check",
+            //"check",
             "rdown",
             //"mup",
             //"mdown",
             //"check",
+            //"rup",
+            //"check",
             "ldown",
+            //"lup",
+            //"rdown",
+
             //"check",
             //"mup",
             "done"
@@ -387,12 +391,12 @@ public abstract class PineapplesBOT extends OpMode {
 
             // GAMEPAD CONTROLS:
             double joyY = expo(-gamepad1.right_stick_y, 2.1);
-            double joyX = expo(-gamepad1.right_stick_x, 2.1);
+            double joyX = expo(gamepad1.right_stick_x, 2.1);
             double joyTurn = expo(-gamepad1.left_stick_x, 3.0);
 
             follower.setTeleOpDrive(
-                    joyY,
                     joyX,
+                    joyY,
                     joyTurn,
                     false
 
@@ -479,17 +483,23 @@ public abstract class PineapplesBOT extends OpMode {
         //add in launch zone later
         if ("shooting".equals(curstep)) {
 
-            // add limelight logic here, break if else if not aligned
-            double turnCmd = limelightTurnCmd();
-            follower.setTeleOpDrive(0.0, 0.0, turnCmd, false);
+            if (shootingcurstep == 0 && !limelightAligned()) {
 
-            if (!limelightAligned()) {
+                updatePoseFromLL();
+                qspeed = 7.69 * distanceTOGOAL(curx, cury) + 938;
+
+                // add limelight logic here, break if else if not aligned
+                double turnCmd = limelightTurnCmd();
+                follower.setTeleOpDrive(0.0, 0.0, turnCmd, false);
+
                 shootingspeed = qspeed;
                 shooterStableSince = 0;
 
 
-            } else {
+            } else if (shootingcurstep != 0 || limelightAligned()){
+                follower.setTeleOpDrive(0.0, 0.0, 0, false);
 
+                telemetry.addLine("SHOOTINGNNGNGNG");
                 double shooterVel1 = ((DcMotorEx) Common.shoot).getVelocity();
                 double shooterVel2 = ((DcMotorEx) Common.shoot2).getVelocity();
                 double now = System.currentTimeMillis();
@@ -503,6 +513,7 @@ public abstract class PineapplesBOT extends OpMode {
 
                         Common.radvance.setPosition(RIGHT_BASE_POSITION);
                         Common.ladvance.setPosition(LEFT_BASE_POSITION);
+                        Common.madvance.setPosition(M_DOWN);
 
                         shooterStableSince = 0;
                         nextShootStep();
@@ -527,7 +538,7 @@ public abstract class PineapplesBOT extends OpMode {
 
                     case "mup":
                         Common.madvance.setPosition(M_UP);
-                        if (now - stepStartTime > 500) {
+                        if (now - stepStartTime > 750) {
                             nextShootStep();
                         }
                         break;
@@ -541,23 +552,29 @@ public abstract class PineapplesBOT extends OpMode {
 
                     case "rdown":
                         Common.radvance.setPosition(R_DOWN);
-                        if (now - stepStartTime > 500)
+                        if (now - stepStartTime > 800)
+                            nextShootStep();
+                        break;
+
+                    case "rup":
+                        Common.radvance.setPosition(RIGHT_BASE_POSITION);
+                        if (now - stepStartTime > 200)
                             nextShootStep();
                         break;
 
                     case "ldown":
                         Common.ladvance.setPosition(L_DOWN);
-                        if (now - stepStartTime > 500)
+                        if (now - stepStartTime > 800)
                             nextShootStep();
                         break;
 
                     case "increase":
-                        shootingspeed += 50;
+                        shootingspeed += 30;
                         nextShootStep();
                         break;
 
                     case "decrease":
-                        shootingspeed -= 50;
+                        shootingspeed -= 30;
                         nextShootStep();
                         break;
 
@@ -597,7 +614,6 @@ public abstract class PineapplesBOT extends OpMode {
         }
 
         // Change shooting steps based on location
-        qspeed = 7.69 * distanceTOGOAL(curx, cury) + 938;
 
         // Going to be variable later so for now we'll keep this constant but left
         /*
@@ -665,6 +681,8 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.addData("curstep",curstep);
         telemetry.addData("Shoot Step",
                 shootingsteps[Math.min(shootingcurstep, shootingsteps.length - 1)]);
+        telemetry.addData("target", qspeed);
+
 
         telemetry.update();
 
@@ -698,6 +716,7 @@ public abstract class PineapplesBOT extends OpMode {
                     llPose.getX(),
                     llPose.getY(),
                     Math.toDegrees(llPose.getHeading()));
+
         } else {
             telemetry.addLine("No LL Data");
         }
