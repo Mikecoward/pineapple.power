@@ -142,8 +142,19 @@ public abstract class PineapplesBOT extends OpMode {
     //1 ---- override in subclasses ----
     protected abstract Alliance getAlliance();
 
-    public static final boolean DRAW_PATHS = true;
-    public static final boolean DRAW_ROBOT = true;
+    protected Limelight3A limelight;
+
+// > DRIVING
+    protected double cmdX = 0.0;
+    protected double cmdY = 0.0;
+    protected double cmdTurn = 0.0;
+    protected static final double JOYSTICK_SLEW = 1;
+    protected double driveSpeedCap = 0.5;
+
+    protected boolean slowMode = false;
+    protected double slowModeMultiplier = 0.5;
+
+//  > PEDROPATHING
 
     protected Follower follower;
     protected boolean automatedDrive;
@@ -151,18 +162,6 @@ public abstract class PineapplesBOT extends OpMode {
 
     protected int numPaths = 7;
     protected Supplier<PathChain>[] pathArray;
-
-    protected boolean slowMode = false;
-    protected double slowModeMultiplier = 0.5;
-
-    protected Limelight3A limelight;
-
-    // Smooth command state
-    protected double cmdX = 0.0;
-    protected double cmdY = 0.0;
-    protected double cmdTurn = 0.0;
-    protected static final double JOYSTICK_SLEW = 0.15;
-
 
     // BLUE “source of truth”
     //80 118 - gate
@@ -178,7 +177,6 @@ public abstract class PineapplesBOT extends OpMode {
             new Pose (25, 110, Math.toRadians(225)) // LIFTING
     };
 
-    //1 Alliance-specific poses (computed at init)
     protected Pose[] poseArray;
 
     protected enum AutoTarget {
@@ -199,12 +197,6 @@ public abstract class PineapplesBOT extends OpMode {
     }
 
     public static Pose startingPose;
-    private Supplier<PathChain> pathChain;
-    private TelemetryManager telemetryM;
-    boolean toggle23 = false;
-
-    boolean swapDirections = false;
-    boolean debounceDirection = false;
 
     IMU imu;
 
@@ -381,16 +373,22 @@ public abstract class PineapplesBOT extends OpMode {
         if (!automatedDrive && !"shooting".equals(curstep)) {
 
             // GAMEPAD CONTROLS:
-            double joyY = expo(-gamepad1.right_stick_y, 2.1);
-            double joyX = expo(gamepad1.right_stick_x, 2.1);
-            double joyTurn = expo(-gamepad1.left_stick_x, 3.0);
+            double targetY    = gamepad1.right_stick_y * Math.pow(Math.abs(gamepad1.right_stick_y), 1.5);
+            double targetX    = gamepad1.right_stick_x * Math.pow(Math.abs(gamepad1.right_stick_x), 1.5);
+            double targetTurn = gamepad1.left_stick_x  * Math.pow(Math.abs(gamepad1.left_stick_x),  1.5) / 1.5;
+
+            cmdY    += clamp(targetY    - cmdY,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
+            cmdX    += clamp(targetX    - cmdX,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
+            cmdTurn += clamp(targetTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
+
+            double mult = slowMode ? slowModeMultiplier : 1.0;
+            mult *= driveSpeedCap; // Apply speed cap to all movements
 
             follower.setTeleOpDrive(
-                    joyX,
-                    joyY,
-                    joyTurn,
+                    -cmdY * mult,
+                    -cmdX * mult,
+                    -cmdTurn * mult,
                     false
-
             );
 
         }
