@@ -141,7 +141,7 @@ class Common {
         radvance = hardwareMap.servo.get("radvance");
         madvance = hardwareMap.servo.get("madvance");
         ladvance = hardwareMap.servo.get("ladvance");
-        radvance.setDirection(Servo.Direction.REVERSE);
+        ladvance.setDirection(Servo.Direction.REVERSE);
 
         advancewheel = hardwareMap.crservo.get("advancewheel");
 
