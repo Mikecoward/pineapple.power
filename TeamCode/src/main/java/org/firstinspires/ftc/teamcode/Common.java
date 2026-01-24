@@ -123,6 +123,7 @@ class Common {
     static Servo radvance = null;
     static Servo madvance = null;
     static Servo ladvance = null;
+    static CRServo advancewheel = null;
 
     // Run motor slowly downwards until current gets too high, then decide that this must be the zero point.
     static void zeroBothMotors() {
@@ -141,6 +142,8 @@ class Common {
         madvance = hardwareMap.servo.get("madvance");
         ladvance = hardwareMap.servo.get("ladvance");
         radvance.setDirection(Servo.Direction.REVERSE);
+
+        advancewheel = hardwareMap.crservo.get("advancewheel");
 
         intaking  = hardwareMap.dcMotor.get("intake");
         intaking.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);

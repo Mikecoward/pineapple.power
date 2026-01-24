@@ -144,7 +144,7 @@ public abstract class PineapplesBOT extends OpMode {
 
     protected Limelight3A limelight;
 
-// > DRIVING
+    // > DRIVING
     protected double cmdX = 0.0;
     protected double cmdY = 0.0;
     protected double cmdTurn = 0.0;
@@ -168,7 +168,8 @@ public abstract class PineapplesBOT extends OpMode {
     //29.8 - 104 135
     protected static final Pose[] poseArrayBlue = {
             new Pose(6.86, 135.11, Math.toRadians(0)), // 0 Blue Start Pose
-            new Pose(92, 92, Math.toRadians(225)), // 1 Blue shoot1 Pose
+            new Pose(72, 72, Math.toRadians(225)), // 1 Blue shoot1 Pose
+
             new Pose(9, 60, Math.toRadians(175)),// 2 Blue shoot2 Pose
 
             new Pose(0, 144, Math.toRadians(180)),// 3 Blue Pickup Pose
@@ -203,8 +204,8 @@ public abstract class PineapplesBOT extends OpMode {
     double DRIVE_TICKS_PER_SEC_MAX = 2800.0;
 
     double MIDDLE_BASE_POSITION = 0.57;
-    double RIGHT_BASE_POSITION = 0.77;
-    double LEFT_BASE_POSITION = 0.77; // 70
+    double RIGHT_BASE_POSITION = 0.74;
+    double LEFT_BASE_POSITION = 0.74; // 70
 
 
     int targetPosition = 0;
@@ -325,6 +326,9 @@ public abstract class PineapplesBOT extends OpMode {
     static final double R_DOWN = 0.60;
     static final double L_DOWN = 0.60;
 
+    static final double R_UP = 0.77;
+    static final double L_UP = 0.77;
+
     int shootingcurstep = 0;
 
     long stepStartTime = 0;
@@ -338,10 +342,12 @@ public abstract class PineapplesBOT extends OpMode {
     ShootStep[] shootingSteps = {
             new ShootStep("aim", -1),        // limelight gated
             new ShootStep("prepare", 0),     // immediate
-            new ShootStep("check", 500),       // shooter stable gated
-            new ShootStep("mup", 750),
-            new ShootStep("rdown", 800),
-            new ShootStep("ldown", 800),
+            new ShootStep("check", 1000),       // shooter stable gated
+            new ShootStep("mup", 500),
+            new ShootStep("check", 250),       // shooter stable gated
+            new ShootStep("rdown", 350),
+            new ShootStep("check", 250),       // shooter stable gated
+            new ShootStep("ldown", 350),
             new ShootStep("done", -1)
     };
 
@@ -502,11 +508,12 @@ public abstract class PineapplesBOT extends OpMode {
                 case "aim":
                     double turnCmd = limelightTurnCmd();
                     follower.setTeleOpDrive(0, 0, turnCmd, false);
-                    shootingspeed = 0;
+                    shootingspeed = 1000;
+                    intakingspeed = 1300;
 
                     if (limelightAligned()) {
                         follower.setTeleOpDrive(0, 0, 0, false);
-                        qspeed = 7.69 * distanceTOGOAL(curx, cury) + 938;
+                        qspeed = 7.69 * distanceTOGOAL(curx, cury) + 838;
                         nextShootStep();
                     }
                     break;
@@ -514,8 +521,8 @@ public abstract class PineapplesBOT extends OpMode {
                 case "prepare":
                     shootingspeed = qspeed;
                     Common.madvance.setPosition(M_DOWN);
-                    Common.radvance.setPosition(RIGHT_BASE_POSITION);
-                    Common.ladvance.setPosition(LEFT_BASE_POSITION);
+                    Common.radvance.setPosition(R_UP);
+                    Common.ladvance.setPosition(L_UP);
                     nextShootStep();
                     break;
 
@@ -573,7 +580,7 @@ public abstract class PineapplesBOT extends OpMode {
 
 
         } else if ("stagnant".equals(curstep)) {
-            intakingspeed = 1200;
+            intakingspeed = 500;
 
             shootingcurstep = 0;
             stepStartTime = 0;
@@ -669,7 +676,7 @@ public abstract class PineapplesBOT extends OpMode {
         double yInches = 72 - DistanceUnit.METER.toInches(xMeters);
 
         YawPitchRollAngles ypr = llpose.getOrientation();
-        double headingRad = AngleUnit.normalizeRadians(ypr.getYaw(AngleUnit.RADIANS) - Math.toRadians(90));
+        double headingRad = AngleUnit.normalizeRadians(ypr.getYaw(AngleUnit.RADIANS) - Math.toRadians(270));
 
         return new Pose(xInches, yInches, headingRad);
     }
