@@ -149,7 +149,7 @@ public abstract class PineapplesBOT extends OpMode {
     protected double cmdY = 0.0;
     protected double cmdTurn = 0.0;
     protected static final double JOYSTICK_SLEW = 1;
-    protected double driveSpeedCap = 0.5;
+    protected double driveSpeedCap = .8;
 
     protected boolean slowMode = false;
     protected double slowModeMultiplier = 0.5;
@@ -168,6 +168,7 @@ public abstract class PineapplesBOT extends OpMode {
     //29.8 - 104 135
     protected static final Pose[] poseArrayBlue = {
             new Pose(6.86, 135.11, Math.toRadians(0)), // 0 Blue Start Pose
+
             new Pose(72, 72, Math.toRadians(225)), // 1 Blue shoot1 Pose
 
             new Pose(9, 60, Math.toRadians(175)),// 2 Blue shoot2 Pose
@@ -270,6 +271,12 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     boolean centric = false;
+
+    static final double DEADBAND = 0.06;
+
+    private double deadband(double v) {
+        return (Math.abs(v) < DEADBAND) ? 0.0 : v;
+    }
 
 
     // LIMELIGHT CODE:
@@ -379,24 +386,26 @@ public abstract class PineapplesBOT extends OpMode {
         if (!automatedDrive && !"shooting".equals(curstep)) {
 
             // GAMEPAD CONTROLS:
-            double targetY    = gamepad1.right_stick_y * Math.pow(Math.abs(gamepad1.right_stick_y), 1.5);
-            double targetX    = gamepad1.right_stick_x * Math.pow(Math.abs(gamepad1.right_stick_x), 1.5);
-            double targetTurn = gamepad1.left_stick_x  * Math.pow(Math.abs(gamepad1.left_stick_x),  1.5) / 1.5;
+            double rawY = deadband(gamepad1.right_stick_y);
+            double rawX = deadband(gamepad1.right_stick_x);
+            double rawTurn = deadband(gamepad1.left_stick_x);
 
-            cmdY    += clamp(targetY    - cmdY,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
-            cmdX    += clamp(targetX    - cmdX,    -JOYSTICK_SLEW, JOYSTICK_SLEW);
-            cmdTurn += clamp(targetTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
+            double targetY    = rawY    * Math.pow(Math.abs(rawY),    1.5);
+            double targetX    = rawX    * Math.pow(Math.abs(rawX),    1.5);
+            double targetTurn = (rawTurn * Math.pow(Math.abs(rawTurn), 1.5)) / 1.5;
+
+            // X/Y slew is fine if you like it
+            cmdY += clamp(targetY - cmdY, -JOYSTICK_SLEW, JOYSTICK_SLEW);
+            cmdX += clamp(targetX - cmdX, -JOYSTICK_SLEW, JOYSTICK_SLEW);
+
+            // TURN: snap to zero when centered (prevents “random” yaw drift)
+            if (targetTurn == 0.0) cmdTurn = 0.0;
+            else cmdTurn += clamp(targetTurn - cmdTurn, -JOYSTICK_SLEW, JOYSTICK_SLEW);
 
             double mult = slowMode ? slowModeMultiplier : 1.0;
             mult *= driveSpeedCap; // Apply speed cap to all movements
 
-            follower.setTeleOpDrive(
-                    -cmdY * mult,
-                    -cmdX * mult,
-                    -cmdTurn * mult,
-                    false
-            );
-
+            follower.setTeleOpDrive( -cmdY * mult, -cmdX * mult, -cmdTurn * mult, false );
         }
 
         // ---------------> SHOOTING
@@ -580,7 +589,7 @@ public abstract class PineapplesBOT extends OpMode {
 
 
         } else if ("stagnant".equals(curstep)) {
-            intakingspeed = 500;
+            intakingspeed = 900;
 
             shootingcurstep = 0;
             stepStartTime = 0;
