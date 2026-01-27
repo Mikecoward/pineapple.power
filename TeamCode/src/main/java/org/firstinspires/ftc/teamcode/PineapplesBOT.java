@@ -377,12 +377,20 @@ public abstract class PineapplesBOT extends OpMode {
 
         follower.update();
 
+        Pose p = follower.getPose();
+        double curx = p.getX();
+        double cury = p.getY();
+        double curhead = p.getHeading();
+
+
+
         Pose llpose = getRobotPoseFromCamera();
-        if (llpose != null && System.currentTimeMillis() - localizedtime > 5000) {
-            if (llpose.getX() > 95 && llpose.getY() > 95) {
-                updatePoseFromLL();
-            }
-            localizedtime = System.currentTimeMillis();
+
+        if (llpose != null) {
+            double distan = distanceTOGOAL(curx, cury);
+            curx += (llpose.getX() - curx) * 1 / distan;
+            cury += (llpose.getY() - cury) * 1 / distan;
+
         }
 
         if (gamepad1.right_trigger > 0.6) {
@@ -393,9 +401,7 @@ public abstract class PineapplesBOT extends OpMode {
 
         //1
 
-        Pose p = follower.getPose();
-        double curx = p.getX();
-        double cury = p.getY();
+
 
         if (!automatedDrive && !"shooting".equals(curstep)) {
 
@@ -419,7 +425,11 @@ public abstract class PineapplesBOT extends OpMode {
             double mult = slowMode ? slowModeMultiplier : 1.0;
             mult *= driveSpeedCap; // Apply speed cap to all movements
 
-            follower.setTeleOpDrive( -cmdY * mult, -cmdX * mult, -cmdTurn * mult, false );
+            if (targetY == 0 && targetX == 0 && targetTurn == 0) {
+                follower.setTeleOpDrive( 0, 0, 0, false );
+            } else {
+                follower.setTeleOpDrive( -cmdY * mult, -cmdX * mult, -cmdTurn * mult, false );
+            }
         }
 
         // ---------------> SHOOTING
@@ -614,7 +624,7 @@ public abstract class PineapplesBOT extends OpMode {
                 if (gamepad1.left_trigger > 0.8) {
                     intakingspeed = -500;
                 } else {
-                    intakingspeed = 500;
+                    intakingspeed = 1300;
                 }
 
                 Common.radvance.setPosition(RIGHT_BASE_POSITION);
@@ -661,6 +671,8 @@ public abstract class PineapplesBOT extends OpMode {
 
         // --- POSE (only what matters) ---
         telemetry.addData("Pose (x,y)", "%.1f , %.1f", curx, cury);
+        telemetry.addData("Distance to goal", "%.0f", distanceTOGOAL(curx, cury));
+
 
         // --- SHOOTER (critical) ---
         telemetry.addData("Shooter v1", "%.0f", ((DcMotorEx) Common.shoot).getVelocity());
