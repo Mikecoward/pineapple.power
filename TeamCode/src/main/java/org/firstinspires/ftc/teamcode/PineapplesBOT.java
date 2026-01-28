@@ -265,6 +265,26 @@ public abstract class PineapplesBOT extends OpMode {
         follower.startTeleopDrive();
     }
 
+    // LOOK UP TABLE
+    // Distance (inches) -> Shooter speed (ticks/sec)
+    static double[][] DISTANCE_SPEED_TABLE = {
+            { 45, 1225 },
+            { 50, 1275 },
+            { 57, 1300 },
+            { 61, 1325 },
+            { 65, 1350 },
+            { 70, 1375 },
+            { 75, 1400 },
+            { 80, 1425 },
+            { 85, 1475 },
+            { 100, 1925
+            },
+
+    };
+
+
+
+
 
     double intakingspeed = 1200;
     double shootingspeed = 0;
@@ -303,8 +323,13 @@ public abstract class PineapplesBOT extends OpMode {
         double turn = AIM_KP * error;
         turn = clamp(turn, -AIM_MAX_TURN, AIM_MAX_TURN);
 
-        if (Math.abs(turn) < AIM_MIN_TURN)
-            turn = Math.signum(turn) * AIM_MIN_TURN;
+        double absErr = Math.abs(error);
+
+        // fade minimum turn as you get closer
+        double minTurn = AIM_MIN_TURN * clamp(absErr / 5.0, 0.0, 1.0);
+
+        if (Math.abs(turn) < minTurn)
+            turn = Math.signum(turn) * minTurn;
 
         if (AIM_INVERT) turn = -turn;
         return turn;
@@ -371,6 +396,11 @@ public abstract class PineapplesBOT extends OpMode {
     }
     boolean advanced = false;
     double localizedtime = 0.0;
+
+    // ---- Lookup table tuning ----
+    int selectedTableIndex = 0;
+    static final double SPEED_STEP = 25;   // how much each button press changes speed
+
 
     @Override
     public void loop() {
@@ -547,7 +577,8 @@ public abstract class PineapplesBOT extends OpMode {
 
                     if (limelightAligned()) {
                         follower.setTeleOpDrive(0, 0, 0, false);
-                        qspeed = 7.69 * distanceTOGOAL(curx, cury) + 838;
+                        double distance = distanceTOGOAL(curx, cury);
+                        qspeed = lookupShooterSpeed(distance);
                         nextShootStep();
                     }
                     break;
@@ -641,6 +672,7 @@ public abstract class PineapplesBOT extends OpMode {
         }
 
 
+        /*
 
         if (gamepad1.dpad_up) {
             Common.lifting.setTargetPosition(LIFT_UP_POS);
@@ -650,6 +682,8 @@ public abstract class PineapplesBOT extends OpMode {
         if (gamepad1.dpad_down) {
             Common.lifting.setTargetPosition(LIFT_DOWN_POS);
         }
+
+         */
 
         if (Common.lifting.getCurrentPosition() >= 350) {
             intakingspeed = 0;
@@ -662,6 +696,40 @@ public abstract class PineapplesBOT extends OpMode {
         ((DcMotorEx) Common.shoot2).setVelocity(-shootingspeed);
 
 
+        double distance = distanceTOGOAL(curx, cury);
+        qspeed = lookupShooterSpeed(distance);
+
+        // ---------------- LOOKUP TABLE TUNING (DPAD) ----------------
+
+        // Change which distance entry is selected
+        if (gamepad1.dpad_left) {
+            selectedTableIndex--;
+            sleep(150);
+        }
+        if (gamepad1.dpad_right) {
+            selectedTableIndex++;
+            sleep(150);
+        }
+
+        selectedTableIndex = (int) clamp(
+                selectedTableIndex,
+                0,
+                DISTANCE_SPEED_TABLE.length - 1
+        );
+
+        // Adjust shooter speed for selected distance
+        if (gamepad1.dpad_up) {
+            DISTANCE_SPEED_TABLE[selectedTableIndex][1] += SPEED_STEP;
+            sleep(150);
+        }
+        if (gamepad1.dpad_down) {
+            DISTANCE_SPEED_TABLE[selectedTableIndex][1] -= SPEED_STEP;
+            sleep(150);
+        }
+
+        // Safety clamp
+        DISTANCE_SPEED_TABLE[selectedTableIndex][1] =
+                clamp(DISTANCE_SPEED_TABLE[selectedTableIndex][1], 800, 2200);
 
 
         // --- CORE STATE ---
@@ -686,9 +754,40 @@ public abstract class PineapplesBOT extends OpMode {
             telemetry.addData("LL tx", "%.2f", rr.getTx());
         }
 
+        telemetry.addLine("---- SHOOTER LOOKUP TABLE ----");
+
+        for (int i = 0; i < DISTANCE_SPEED_TABLE.length; i++) {
+            String marker = (i == selectedTableIndex) ? ">>" : "  ";
+
+            telemetry.addData(
+                    marker + " [" + i + "]",
+                    "Dist %.0f -> Speed %.0f",
+                    DISTANCE_SPEED_TABLE[i][0],
+                    DISTANCE_SPEED_TABLE[i][1]
+            );
+        }
+
+
         telemetry.update();
 
     }
+
+    protected double lookupShooterSpeed(double distanceInches) {
+        double closestSpeed = DISTANCE_SPEED_TABLE[0][1];
+        double smallestError = Math.abs(distanceInches - DISTANCE_SPEED_TABLE[0][0]);
+
+        for (int i = 1; i < DISTANCE_SPEED_TABLE.length; i++) {
+            double tableDistance = DISTANCE_SPEED_TABLE[i][0];
+            double error = Math.abs(distanceInches - tableDistance);
+
+            if (error < smallestError) {
+                smallestError = error;
+                closestSpeed = DISTANCE_SPEED_TABLE[i][1];
+            }
+        }
+        return closestSpeed;
+    }
+
     protected Pose getRobotPoseFromCamera() {
         LLResult result = limelight.getLatestResult();
         if (result == null || !result.isValid()) return null;
