@@ -418,6 +418,7 @@ public abstract class PineapplesBOT extends OpMode {
 
         if (llpose != null) {
             double distan = distanceTOGOAL(curx, cury);
+            distan = Math.max(distan, 10);
             curx += (llpose.getX() - curx) * 1 / distan;
             cury += (llpose.getY() - cury) * 1 / distan;
 
@@ -464,7 +465,7 @@ public abstract class PineapplesBOT extends OpMode {
 
         // ---------------> SHOOTING
 
-        if (gamepad1.aWasPressed() && !automatedDrive) {
+        if (gamepad1.dpad_up && !automatedDrive) {
             int distshooting1, distshooting2;
 
             distshooting2 = (int) Math.round(Math.sqrt(Math.pow(p.getX() - 9, 2) + Math.pow(p.getY() - 60, 2)));
@@ -484,7 +485,7 @@ public abstract class PineapplesBOT extends OpMode {
             }
         }
 
-        if (!gamepad1.a && automatedDrive && (currentAutoTarget == AutoTarget.shooting1 || currentAutoTarget == AutoTarget.shooting2)) {
+        if (!gamepad1.dpad_up && automatedDrive && (currentAutoTarget == AutoTarget.shooting1 || currentAutoTarget == AutoTarget.shooting2)) {
             follower.startTeleopDrive();
             automatedDrive = false;
             currentAutoTarget = AutoTarget.NONE;
@@ -492,14 +493,14 @@ public abstract class PineapplesBOT extends OpMode {
 
         // ---------------> PICKUP
 
-        if (gamepad1.bWasPressed() && !automatedDrive) {
+        if (gamepad1.dpad_down && !automatedDrive) {
             follower.followPath(pathArray[AutoTarget.PICKUP.value].get());
             automatedDrive = true;
             currentAutoTarget = AutoTarget.PICKUP;
         }
 
 
-        if (!gamepad1.b && automatedDrive && currentAutoTarget == AutoTarget.PICKUP) {
+        if (!gamepad1.dpad_down && automatedDrive && currentAutoTarget == AutoTarget.PICKUP) {
             follower.startTeleopDrive();
             automatedDrive = false;
             currentAutoTarget = AutoTarget.NONE;
@@ -507,13 +508,13 @@ public abstract class PineapplesBOT extends OpMode {
 
         // ---------------> GATE
 
-        if (gamepad1.xWasPressed() && !automatedDrive) {
+        if (gamepad1.dpad_left && !automatedDrive) {
             follower.followPath(pathArray[AutoTarget.GATE.value].get());
             automatedDrive = true;
             currentAutoTarget = AutoTarget.GATE;
         }
 
-        if (!gamepad1.x && automatedDrive && currentAutoTarget == AutoTarget.GATE) {
+        if (!gamepad1.dpad_left && automatedDrive && currentAutoTarget == AutoTarget.GATE) {
             follower.startTeleopDrive();
             automatedDrive = false;
             currentAutoTarget = AutoTarget.NONE;
@@ -521,13 +522,13 @@ public abstract class PineapplesBOT extends OpMode {
 
         // ----------------> LIFTING
 
-        if (gamepad1.yWasPressed() && !automatedDrive) {
+        if (gamepad1.dpad_right && !automatedDrive) {
             follower.followPath(pathArray[AutoTarget.LIFTING.value].get());
             automatedDrive = true;
             currentAutoTarget = AutoTarget.LIFTING;
         }
 
-        if (!gamepad1.y && automatedDrive && currentAutoTarget == AutoTarget.LIFTING) {
+        if (!gamepad1.dpad_right && automatedDrive && currentAutoTarget == AutoTarget.LIFTING) {
             follower.startTeleopDrive();
             automatedDrive = false;
             currentAutoTarget = AutoTarget.NONE;
@@ -570,18 +571,22 @@ public abstract class PineapplesBOT extends OpMode {
             switch (step.name) {
 
                 case "aim":
+
                     double turnCmd = limelightTurnCmd();
-                    follower.setTeleOpDrive(0, 0, turnCmd, false);
+
+                    // HARD override — no smoothing, no stored cmdTurn
+                    follower.setTeleOpDrive(0, 0, -turnCmd, true);
+
                     shootingspeed = 1000;
                     intakingspeed = 1300;
 
                     if (limelightAligned()) {
-                        follower.setTeleOpDrive(0, 0, 0, false);
-                        double distance = distanceTOGOAL(curx, cury);
-                        qspeed = lookupShooterSpeed(distance);
+                        follower.setTeleOpDrive(0, 0, 0, true);
                         nextShootStep();
                     }
+
                     break;
+
 
                 case "prepare":
                     shootingspeed = qspeed;
@@ -672,18 +677,19 @@ public abstract class PineapplesBOT extends OpMode {
         }
 
 
-        /*
 
-        if (gamepad1.dpad_up) {
+
+        // Lift control on buttons
+        if (gamepad1.y) {
             Common.lifting.setTargetPosition(LIFT_UP_POS);
-
         }
 
-        if (gamepad1.dpad_down) {
+        if (gamepad1.a) {
             Common.lifting.setTargetPosition(LIFT_DOWN_POS);
         }
 
-         */
+
+
 
         if (Common.lifting.getCurrentPosition() >= 350) {
             intakingspeed = 0;
@@ -698,38 +704,6 @@ public abstract class PineapplesBOT extends OpMode {
 
         double distance = distanceTOGOAL(curx, cury);
         qspeed = lookupShooterSpeed(distance);
-
-        // ---------------- LOOKUP TABLE TUNING (DPAD) ----------------
-
-        // Change which distance entry is selected
-        if (gamepad1.dpad_left) {
-            selectedTableIndex--;
-            sleep(150);
-        }
-        if (gamepad1.dpad_right) {
-            selectedTableIndex++;
-            sleep(150);
-        }
-
-        selectedTableIndex = (int) clamp(
-                selectedTableIndex,
-                0,
-                DISTANCE_SPEED_TABLE.length - 1
-        );
-
-        // Adjust shooter speed for selected distance
-        if (gamepad1.dpad_up) {
-            DISTANCE_SPEED_TABLE[selectedTableIndex][1] += SPEED_STEP;
-            sleep(150);
-        }
-        if (gamepad1.dpad_down) {
-            DISTANCE_SPEED_TABLE[selectedTableIndex][1] -= SPEED_STEP;
-            sleep(150);
-        }
-
-        // Safety clamp
-        DISTANCE_SPEED_TABLE[selectedTableIndex][1] =
-                clamp(DISTANCE_SPEED_TABLE[selectedTableIndex][1], 800, 2200);
 
 
         // --- CORE STATE ---
@@ -753,20 +727,6 @@ public abstract class PineapplesBOT extends OpMode {
         if (rr != null && rr.isValid()) {
             telemetry.addData("LL tx", "%.2f", rr.getTx());
         }
-
-        telemetry.addLine("---- SHOOTER LOOKUP TABLE ----");
-
-        for (int i = 0; i < DISTANCE_SPEED_TABLE.length; i++) {
-            String marker = (i == selectedTableIndex) ? ">>" : "  ";
-
-            telemetry.addData(
-                    marker + " [" + i + "]",
-                    "Dist %.0f -> Speed %.0f",
-                    DISTANCE_SPEED_TABLE[i][0],
-                    DISTANCE_SPEED_TABLE[i][1]
-            );
-        }
-
 
         telemetry.update();
 
