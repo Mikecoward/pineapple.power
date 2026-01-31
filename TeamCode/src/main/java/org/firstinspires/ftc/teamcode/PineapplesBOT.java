@@ -159,7 +159,7 @@ public abstract class PineapplesBOT extends OpMode {
     protected boolean automatedDrive;
     protected AutoTarget currentAutoTarget = AutoTarget.NONE;
 
-    protected int numPaths = 7;
+    protected int numPaths = poseArrayBlue.length;
     protected Supplier<PathChain>[] pathArray;
 
     // BLUE “source of truth”
@@ -170,25 +170,21 @@ public abstract class PineapplesBOT extends OpMode {
 
             new Pose(72, 72, Math.toRadians(225)), // 1 Blue shoot1 Pose
 
-            new Pose(9, 60, Math.toRadians(175)),// 2 Blue shoot2 Pose
+            new Pose(17, 17, Math.toRadians(225)),// 3 RED Pickup Pose
 
-            new Pose(0, 144, Math.toRadians(180)),// 3 Blue Pickup Pose
-            new Pose(7, 135, Math.toRadians(180)), // 4 BLue reset ODOM Pose
-            new Pose( 70, 131, Math.toRadians(0)), // GATE POSE
-            new Pose (25, 110, Math.toRadians(225)) // LIFTING
+            new Pose( 135, 60, Math.toRadians(20)), // RED GATE POSE
+
+            new Pose (33, 27, Math.toRadians(225)) // RED LIFTING
     };
 
     protected Pose[] poseArray;
 
     protected enum AutoTarget {
         NONE(-1),
-        start(0),
         shooting1(1),
-        shooting2(2),
-        PICKUP(3),
-        ResetODOM(4),
-        GATE(5),
-        LIFTING(6);
+        PICKUP(2),
+        GATE(3),
+        LIFTING(4);
 
         public final int value;
 
@@ -458,33 +454,33 @@ public abstract class PineapplesBOT extends OpMode {
             }
         }
 
-        // ---------------> SHOOTING
-
+        // ---------------> SHOOTING (dynamic closest point on y=x from (72,72)->(90,90))
         if (gamepad1.dpad_up && !automatedDrive) {
-            int distshooting1, distshooting2;
 
-            distshooting2 = (int) Math.round(Math.sqrt(Math.pow(p.getX() - 9, 2) + Math.pow(p.getY() - 60, 2)));
-            distshooting2 = 100000;
-            // FOR NOW ONLY GO FOR DISTSHOOTING1
-            distshooting1 = (int) Math.round(Math.sqrt(Math.pow(p.getX() - 72, 2) + Math.pow(p.getY() - 72, 2)));
+            Pose target = closestPointOnShootLine(follower.getPose());
 
-            if (distshooting1 < distshooting2) {
-                follower.followPath(pathArray[AutoTarget.shooting1.value].get());
-                automatedDrive = true;
-                currentAutoTarget = AutoTarget.shooting1;
-            } else {
-                follower.followPath(pathArray[AutoTarget.shooting2.value].get());
-                automatedDrive = true;
-                currentAutoTarget = AutoTarget.shooting2;
+            PathChain shootPath = follower.pathBuilder()
+                    .addPath(new Path(new BezierLine(follower::getPose, target)))
+                    .setHeadingInterpolation(
+                            HeadingInterpolator.linearFromPoint(
+                                    follower::getHeading,
+                                    target.getHeading(),
+                                    0.8
+                            )
+                    )
+                    .build();
 
-            }
+            follower.followPath(shootPath);
+            automatedDrive = true;
+            currentAutoTarget = AutoTarget.shooting1; // reuse this state
         }
 
-        if (!gamepad1.dpad_up && automatedDrive && (currentAutoTarget == AutoTarget.shooting1 || currentAutoTarget == AutoTarget.shooting2)) {
+        if (!gamepad1.dpad_up && automatedDrive && currentAutoTarget == AutoTarget.shooting1) {
             follower.startTeleopDrive();
             automatedDrive = false;
             currentAutoTarget = AutoTarget.NONE;
         }
+
 
         // ---------------> PICKUP
 
@@ -730,6 +726,20 @@ public abstract class PineapplesBOT extends OpMode {
 
         telemetry.update();
 
+    }
+
+    private Pose closestPointOnShootLine(Pose fromPose) {
+        double x = fromPose.getX();
+        double y = fromPose.getY();
+
+        // projection onto y=x
+        double t = (x + y) / 2.0;
+
+        // clamp to segment [72, 90]
+        t = Math.max(72.0, Math.min(90.0, t));
+
+        // keep your shooting heading (225°) or choose something else
+        return new Pose(t, t, Math.toRadians(225));
     }
 
     protected double lookupShooterSpeed(double distanceInches) {
