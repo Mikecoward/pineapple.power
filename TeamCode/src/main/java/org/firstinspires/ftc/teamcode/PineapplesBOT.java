@@ -57,7 +57,6 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
 
 import static org.firstinspires.ftc.teamcode.Common.intaking;
-import static org.firstinspires.ftc.teamcode.Common.limelight;
 import static org.firstinspires.ftc.teamcode.Common.normalizeAngleD;
 import static org.firstinspires.ftc.teamcode.Common.radvance;
 
@@ -204,7 +203,7 @@ public abstract class PineapplesBOT extends OpMode {
 
     double DRIVE_TICKS_PER_SEC_MAX = 2800.0;
 
-    double MIDDLE_BASE_POSITION = 0.640;
+    double MIDDLE_BASE_POSITION = 0.690;
     double RIGHT_BASE_POSITION = 0.74;
     double LEFT_BASE_POSITION = 0.74; // 70
 
@@ -300,42 +299,36 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     // LIMELIGHT CODE:
-    static final double AIM_TX_OFFSET_DEG = -2.0; // aim 5° to the right
-    static final double AIM_TX_TOL_DEG = 0.5;     // stop when |tx| <= this
-    static final double AIM_KP = 0.002;            // scalar: turnPower = KP * tx
-    static final double AIM_MAX_TURN = 0.18;      // keep it slow
-    static final double AIM_MIN_TURN = 0.04;      // overcome stiction; set 0 if too jumpy
-    static boolean AIM_INVERT = true;            // flip if it turns the wrong way
+    static final double AIM_TX_OFFSET_DEG = 0.0;
+    static final double AIM_TX_TOL_DEG = 1.0;
 
-    // DISTANCE _ SPEED
+    static final double AIM_KP = 0.01;      // stronger P, but no min power
+    static final double AIM_MAX_TURN = 0.12;
+
+    static boolean AIM_INVERT = false;       // flip ONLY if needed
+
 
     private double limelightTurnCmd() {
         LLResult r = limelight.getLatestResult();
         if (r == null || !r.isValid()) return 0.0;
 
-        double tx = r.getTx();
-        double error = tx - AIM_TX_OFFSET_DEG;
+        double tx = r.getTx();                 // degrees
+        double error = tx;                     // no offset
 
-        if (Math.abs(error) < AIM_TX_TOL_DEG) {
-            return 0;
+        // Stop if we're close enough
+        if (Math.abs(error) <= AIM_TX_TOL_DEG) {
+            return 0.0;
         }
 
+        // Simple proportional control
         double turn = AIM_KP * error;
+
+        // Clamp max speed
         turn = clamp(turn, -AIM_MAX_TURN, AIM_MAX_TURN);
 
-        double absErr = Math.abs(error);
-
-        // fade minimum turn as you get closer
-        double minTurn = AIM_MIN_TURN * clamp(absErr / 5.0, 0.0, 1.0);
-
-        if (Math.abs(turn) < minTurn)
-            turn = Math.signum(turn) * minTurn;
-
-        if (AIM_INVERT) turn = -turn;
-        return turn;
-
-
+        return AIM_INVERT ? -turn : turn;
     }
+
 
     static final int LIFT_UP_POS = 400;
     static final int LIFT_DOWN_POS = 0;
@@ -354,7 +347,7 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     static final double M_UP = 0.785;
-    static final double M_DOWN = 0.590;
+    static final double M_DOWN = 0.610;
 
     static final double R_DOWN = 0.57;
     static final double L_DOWN = 0.58;
@@ -455,6 +448,8 @@ public abstract class PineapplesBOT extends OpMode {
 
             double mult = slowMode ? slowModeMultiplier : 1.0;
             mult *= driveSpeedCap; // Apply speed cap to all movements
+
+            cmdTurn = expo(rawTurn, 1.5) * mult;
 
             if (targetY == 0 && targetX == 0 && targetTurn == 0) {
                 follower.setTeleOpDrive( 0, 0, 0, false );
@@ -589,6 +584,7 @@ public abstract class PineapplesBOT extends OpMode {
 
 
                 case "prepare":
+                    follower.setTeleOpDrive(0, 0, 0, true);
                     shootingspeed = qspeed;
                     //Common.madvance.setPosition(M_DOWN);
                     Common.radvance.setPosition(R_UP);
@@ -597,6 +593,8 @@ public abstract class PineapplesBOT extends OpMode {
                     break;
 
                 case "check":
+                    follower.setTeleOpDrive(0, 0, 0, true);
+
                     boolean inRange =
                             Math.abs(shooterVel1 - shootingspeed) <= SHOOTER_TOL &&
                                     Math.abs(shooterVel2 + shootingspeed) <= SHOOTER_TOL;
@@ -617,6 +615,7 @@ public abstract class PineapplesBOT extends OpMode {
                     break;
 
                 case "mup":
+                    Common.advancewheel.setPower(1);
                     Common.madvance.setPosition(M_UP);
                     if (elapsed >= step.durationMs) nextShootStep();
                     break;
@@ -673,6 +672,7 @@ public abstract class PineapplesBOT extends OpMode {
             stepStartTime = 0;
             shootingspeed = 0;
             shooterStableSince = 0;
+            Common.advancewheel.setPower(-1);
 
         }
 

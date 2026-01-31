@@ -144,6 +144,7 @@ class Common {
         ladvance.setDirection(Servo.Direction.REVERSE);
 
         advancewheel = hardwareMap.crservo.get("advancewheel");
+        advancewheel.setDirection(CRServo.Direction.REVERSE);
 
         intaking  = hardwareMap.dcMotor.get("intake");
         intaking.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
