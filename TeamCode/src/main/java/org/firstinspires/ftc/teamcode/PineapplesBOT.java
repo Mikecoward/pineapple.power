@@ -199,10 +199,12 @@ public abstract class PineapplesBOT extends OpMode {
 
     double DRIVE_TICKS_PER_SEC_MAX = 2800.0;
 
-    double MIDDLE_BASE_POSITION = 0.690;
+    double MIDDLE_BASE_POSITION = 0.69;
     double RIGHT_BASE_POSITION = 0.74;
     double LEFT_BASE_POSITION = 0.74; // 70
 
+    boolean slow = false;
+    double slowtimer = 500;
 
     int targetPosition = 0;
     double qspeed = 0;
@@ -272,8 +274,7 @@ public abstract class PineapplesBOT extends OpMode {
             { 75, 1400 },
             { 80, 1425 },
             { 85, 1475 },
-            { 100, 1925
-            },
+            { 100, 1940},
 
     };
 
@@ -295,7 +296,7 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     // LIMELIGHT CODE:
-    static final double AIM_TX_OFFSET_DEG = 0.0;
+    static double AIM_TX_OFFSET_DEG = -6.0;
     static final double AIM_TX_TOL_DEG = 1.0;
 
     static final double AIM_KP = 0.01;      // stronger P, but no min power
@@ -309,7 +310,7 @@ public abstract class PineapplesBOT extends OpMode {
         if (r == null || !r.isValid()) return 0.0;
 
         double tx = r.getTx();                 // degrees
-        double error = tx;                     // no offset
+        double error = tx - AIM_TX_OFFSET_DEG;
 
         // Stop if we're close enough
         if (Math.abs(error) <= AIM_TX_TOL_DEG) {
@@ -348,8 +349,8 @@ public abstract class PineapplesBOT extends OpMode {
     static final double R_DOWN = 0.57;
     static final double L_DOWN = 0.58;
 
-    static final double R_UP = 0.77;
-    static final double L_UP = 0.77;
+    static final double R_UP = 0.78;
+    static final double L_UP = 0.78;
 
     int shootingcurstep = 0;
 
@@ -541,7 +542,7 @@ public abstract class PineapplesBOT extends OpMode {
         //add in launch zone later
         if ("shooting".equals(curstep)) {
 
-            if ("shooting".equals(curstep) && stepStartTime == 0) {
+            if (stepStartTime == 0) {
                 stepStartTime = System.currentTimeMillis();
             }
 
@@ -646,12 +647,13 @@ public abstract class PineapplesBOT extends OpMode {
 
         } else if ("stagnant".equals(curstep)) {
             if (gamepad1.left_bumper) {
-                Common.radvance.setPosition(.77);
+                Common.radvance.setPosition(.79);
                 Common.madvance.setPosition(.675);
-                Common.ladvance.setPosition(.77);
+                Common.ladvance.setPosition(.79);
 
                 intakingspeed = 1300;
             } else {
+                // || (System.currentTimeMillis() - slowtimer > 0 && slow)
                 if (gamepad1.left_trigger > 0.8) {
                     intakingspeed = -500;
                 } else {
@@ -672,7 +674,15 @@ public abstract class PineapplesBOT extends OpMode {
 
         }
 
+        /*
+        if (((DcMotorEx) Common.shoot).getVelocity() < 250) {
+            slow = true;
+            slowtimer = System.currentTimeMillis();
+        } else {
+            slow = false;
+        }
 
+         */
 
 
         // Lift control on buttons
@@ -701,6 +711,33 @@ public abstract class PineapplesBOT extends OpMode {
         double distance = distanceTOGOAL(curx, cury);
         qspeed = lookupShooterSpeed(distance);
 
+        if (distance < 70) {
+            shootingSteps = new ShootStep[] {
+                    new ShootStep("aim", -1),        // limelight gated
+                    new ShootStep("prepare", 0),     // immediate
+                    new ShootStep("check", 1500),       // shooter stable gated
+                    new ShootStep("mup", 750),
+                    //new ShootStep("check", 750),       // shooter stable gated
+                    new ShootStep("rdown", 700),
+                    //new ShootStep("check", 750),       // shooter stable gated
+                    new ShootStep("ldown", 700),
+                    new ShootStep("done", -1)
+            };
+            AIM_TX_OFFSET_DEG = -6.0;
+        } else {
+            shootingSteps = new ShootStep[] {
+                    new ShootStep("aim", -1),        // limelight gated
+                    new ShootStep("prepare", 0),     // immediate
+                    new ShootStep("check", 1500),       // shooter stable gated
+                    new ShootStep("mup", 750),
+                    new ShootStep("check", 750),       // shooter stable gated
+                    new ShootStep("rdown", 700),
+                    new ShootStep("check", 750),       // shooter stable gated
+                    new ShootStep("ldown", 700),
+                    new ShootStep("done", -1)
+            };
+            AIM_TX_OFFSET_DEG = 0.0;
+        }
 
         // --- CORE STATE ---
         telemetry.addData("Mode", curstep);

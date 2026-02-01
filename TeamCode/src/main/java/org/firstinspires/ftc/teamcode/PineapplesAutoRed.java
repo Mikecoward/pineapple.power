@@ -17,54 +17,47 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 public class PineapplesAutoRed extends OpMode {
 
     /* ================= CONSTANTS ================= */
-
     private static final double NORMAL_SPEED = 0.18;
     private static final double SLOW_SPEED = 0.10;
-
     private static final double INTAKE_RPM = 1300;
-
     private static final long PRE_SHOOT_DELAY_MS = 1000;
     private static final long SHOOT_WAIT_MS = 700;
     private static final long INTAKE_WAIT_MS = 900;
     private static final long SECOND_INTAKE_EXTRA_MS = 500;
+    private static final double DRIVE_POWER_NORMAL = 1.0;
+    private static final double DRIVE_POWER_INTAKE = 0.45; // tune this
 
     /* ================= RED POSES ================= */
-
     private static final Pose[] RED_POSES = {
             new Pose(123, 125, Math.toRadians(35)),    // start
-
             new Pose(86, 85, Math.toRadians(225)),     // shoot 1
             new Pose(120, 120, Math.toRadians(-90)),
             new Pose(120, 85, Math.toRadians(-90)),
-
             new Pose(86, 85, Math.toRadians(225)),     // shoot 2
-            new Pose(120, 85, Math.toRadians(-90)),
-            new Pose(120, 58, Math.toRadians(-90)),
-
+            new Pose(119, 85, Math.toRadians(-90)),
+            new Pose(119, 58, Math.toRadians(-90)),
             new Pose(86, 85, Math.toRadians(225)),     // shoot 3
-            new Pose(120, 58, Math.toRadians(-90)),
-            new Pose(120, 40, Math.toRadians(-90))
+            new Pose(119, 58, Math.toRadians(-90)),
+            new Pose(119, 40, Math.toRadians(-90))
     };
 
     /* ================= INTERNAL ================= */
-
     private PathChain[] paths;
     private Follower follower;
-
     private int state = 0;
     private long stateStartTime = 0;
     private boolean arrived = false;
     private int gateStep = 0;
     private boolean preShootDelayDone = false;
+    private boolean firstShootPositionReached = false;
+    private long shootPositionTime = 0;
 
     /* ================= SHOOTING LOGIC ================= */
-
     private enum ShootStepType { AIM, PREPARE, CHECK, M_UP, R_DOWN, L_DOWN, DONE }
 
     private class ShootStep {
         ShootStepType type;
         long durationMs;
-
         ShootStep(ShootStepType t, long ms) { type = t; durationMs = ms; }
     }
 
@@ -82,8 +75,6 @@ public class PineapplesAutoRed extends OpMode {
     private long stepStartTime = 0;
 
     /* ================= INIT ================= */
-
-    // inside PineapplesAutoRedShoot class
     protected Limelight3A limelight; // copy this from teleop
 
     @Override
@@ -96,7 +87,7 @@ public class PineapplesAutoRed extends OpMode {
 
         // gates neutral
         Common.ladvance.setPosition(0.77);
-        Common.madvance.setPosition(0.57);
+        Common.madvance.setPosition(0.64);
         Common.radvance.setPosition(0.77);
 
         // --- LIMELIGHT INIT ---
@@ -112,7 +103,6 @@ public class PineapplesAutoRed extends OpMode {
     }
 
     /* ================= LOOP ================= */
-
     @Override
     public void loop() {
         follower.update();
@@ -144,13 +134,13 @@ public class PineapplesAutoRed extends OpMode {
     }
 
     /* ================= SHOOT HANDLER ================= */
-
     private void handleShoot() {
         if (!arrived && !follower.isBusy()) {
             arrived = true;
             stateStartTime = System.currentTimeMillis();
             return;
         }
+
         if (!arrived) return;
 
         if (stepStartTime == 0) stepStartTime = System.currentTimeMillis();
@@ -161,11 +151,22 @@ public class PineapplesAutoRed extends OpMode {
         DcMotorEx s1 = (DcMotorEx) Common.shoot;
         DcMotorEx s2 = (DcMotorEx) Common.shoot2;
 
+        // Check if it's the first shooting position (adjust the position as needed)
+        if (!firstShootPositionReached && state == 1) {
+            firstShootPositionReached = true;
+            shootPositionTime = System.currentTimeMillis();
+        }
+
+        // Wait for 1 second after reaching the first shooting position before shooting
+        if (firstShootPositionReached && System.currentTimeMillis() - shootPositionTime < 1000) {
+            return; // Wait for 1 second
+        }
+
         switch (step.type) {
             case AIM:
                 // use limelight to align
                 double turnCmd = limelightTurnCmd();
-                follower.setTeleOpDrive(0,0,-turnCmd,true);
+                follower.setTeleOpDrive(0, 0, -turnCmd, true);
                 if (limelightAligned()) nextShootStep();
                 break;
 
@@ -180,9 +181,7 @@ public class PineapplesAutoRed extends OpMode {
             case CHECK:
                 s1.setVelocity(1400);
                 s2.setVelocity(-1400);
-
-                boolean inRange = Math.abs(s1.getVelocity() - 1400) < 20 &&
-                        Math.abs(s2.getVelocity() + 1400) < 20;
+                boolean inRange = Math.abs(s1.getVelocity() - 1400) < 20 && Math.abs(s2.getVelocity() + 1400) < 20;
                 if (inRange) nextShootStep();
                 else if (elapsed >= step.durationMs) nextShootStep();
                 break;
@@ -231,22 +230,22 @@ public class PineapplesAutoRed extends OpMode {
     }
 
     /* ================= INTAKE HANDLER ================= */
-
     private void handleIntake() {
         if (!arrived && !follower.isBusy()) {
             arrived = true;
             stateStartTime = System.currentTimeMillis();
         }
+
         if (!arrived) return;
 
         long wait = INTAKE_WAIT_MS;
+
         if (state == 6) wait += SECOND_INTAKE_EXTRA_MS;
 
         if (System.currentTimeMillis() - stateStartTime >= wait) advance();
     }
 
     /* ================= STATE MACHINE ================= */
-
     private void advance() {
         state++;
         if (state >= paths.length) return;
@@ -259,6 +258,14 @@ public class PineapplesAutoRed extends OpMode {
         preShootDelayDone = false;
         shootingcurstep = 0;
         stepStartTime = 0;
+
+        // 🔽 SLOW DOWN WHEN INTAKING
+        if (isIntakeState(s)) {
+            follower.setMaxPower(DRIVE_POWER_INTAKE);
+        } else {
+            follower.setMaxPower(DRIVE_POWER_NORMAL);
+        }
+
         follower.followPath(paths[s], true);
     }
 
@@ -280,15 +287,13 @@ public class PineapplesAutoRed extends OpMode {
                     .build();
         }
     }
+
     // LIMELIGHT CODE:
     static final double AIM_TX_OFFSET_DEG = 0.0;
     static final double AIM_TX_TOL_DEG = 1.0;
-
     static final double AIM_KP = 0.01;      // stronger P, but no min power
     static final double AIM_MAX_TURN = 0.12;
-
     static boolean AIM_INVERT = false;       // flip ONLY if needed
-
 
     private double limelightTurnCmd() {
         LLResult r = limelight.getLatestResult();
@@ -310,15 +315,13 @@ public class PineapplesAutoRed extends OpMode {
 
         return AIM_INVERT ? -turn : turn;
     }
+
     protected double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
     }
+
     private boolean limelightAligned() {
         LLResult r = limelight.getLatestResult();
         return r != null && r.isValid() && Math.abs(r.getTx() - AIM_TX_OFFSET_DEG) <= AIM_TX_TOL_DEG;
     }
-
-
 }
-
-
