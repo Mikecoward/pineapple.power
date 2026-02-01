@@ -299,29 +299,41 @@ public abstract class PineapplesBOT extends OpMode {
     static double AIM_TX_OFFSET_DEG = -6.0;
     static final double AIM_TX_TOL_DEG = 1.0;
 
-    static final double AIM_KP = 0.01;      // stronger P, but no min power
+    static double AIM_KD = 0.002;   // start small
+    static double AIM_KP = 0.01;
+
+    private double aimPrevError = 0.0;
+    private long aimPrevTime = 0;
     static final double AIM_MAX_TURN = 0.12;
 
     static boolean AIM_INVERT = false;       // flip ONLY if needed
-
 
     private double limelightTurnCmd() {
         LLResult r = limelight.getLatestResult();
         if (r == null || !r.isValid()) return 0.0;
 
-        double tx = r.getTx();                 // degrees
+        double tx = r.getTx();
         double error = tx - AIM_TX_OFFSET_DEG;
 
-        // Stop if we're close enough
         if (Math.abs(error) <= AIM_TX_TOL_DEG) {
+            aimPrevError = 0;
             return 0.0;
         }
 
-        // Simple proportional control
-        double turn = AIM_KP * error;
+        long now = System.nanoTime();
+        double dt = (aimPrevTime == 0) ? 0.02 :
+                (now - aimPrevTime) / 1e9;
 
-        // Clamp max speed
+        double derivative = (error - aimPrevError) / dt;
+
+        double turn =
+                (AIM_KP * error) +
+                        (AIM_KD * derivative);
+
         turn = clamp(turn, -AIM_MAX_TURN, AIM_MAX_TURN);
+
+        aimPrevError = error;
+        aimPrevTime = now;
 
         return AIM_INVERT ? -turn : turn;
     }
@@ -569,7 +581,7 @@ public abstract class PineapplesBOT extends OpMode {
                     // HARD override — no smoothing, no stored cmdTurn
                     follower.setTeleOpDrive(0, 0, -turnCmd, true);
 
-                    shootingspeed = 1000;
+                    shootingspeed = qspeed;
                     intakingspeed = 1300;
 
                     if (limelightAligned()) {
@@ -670,6 +682,9 @@ public abstract class PineapplesBOT extends OpMode {
             stepStartTime = 0;
             shootingspeed = 0;
             shooterStableSince = 0;
+            aimPrevError = 0;
+            aimPrevTime = 0;
+
             Common.advancewheel.setPower(-1);
 
         }
