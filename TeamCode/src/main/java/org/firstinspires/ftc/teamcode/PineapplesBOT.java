@@ -253,7 +253,7 @@ public abstract class PineapplesBOT extends OpMode {
         targetPosition = 0;
         Common.lifting.setTargetPosition(targetPosition);
         Common.lifting.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        Common.lifting.setPower(0.25);
+        Common.lifting.setPower(0.45);
 
 
     }
@@ -267,9 +267,13 @@ public abstract class PineapplesBOT extends OpMode {
     static double[][] DISTANCE_SPEED_TABLE = {
             { 45, 1225 },
             { 50, 1275 },
+            { 55, 1280 },
             { 57, 1300 },
+            { 59, 1310 },
             { 61, 1325 },
+            { 63, 1330 },
             { 65, 1350 },
+            { 68, 1360 },
             { 70, 1375 },
             { 75, 1400 },
             { 80, 1425 },
@@ -307,12 +311,15 @@ public abstract class PineapplesBOT extends OpMode {
     static final double AIM_MAX_TURN = 0.12;
 
     static boolean AIM_INVERT = false;       // flip ONLY if needed
+    long aimStableSince = 0;
+    static final int AIM_STABLE_MS = 120;
+
 
     private double limelightTurnCmd() {
         LLResult r = limelight.getLatestResult();
-        if (r == null || !r.isValid()) return 0.0;
+        if (!limelightHasValidTarget(r)) return 0.0;
 
-        double tx = r.getTx();
+        double tx = r.getTx();   // safe now
         double error = tx - AIM_TX_OFFSET_DEG;
 
         if (Math.abs(error) <= AIM_TX_TOL_DEG) {
@@ -321,15 +328,11 @@ public abstract class PineapplesBOT extends OpMode {
         }
 
         long now = System.nanoTime();
-        double dt = (aimPrevTime == 0) ? 0.02 :
-                (now - aimPrevTime) / 1e9;
+        double dt = (aimPrevTime == 0) ? 0.02 : (now - aimPrevTime) / 1e9;
 
         double derivative = (error - aimPrevError) / dt;
 
-        double turn =
-                (AIM_KP * error) +
-                        (AIM_KD * derivative);
-
+        double turn = AIM_KP * error + AIM_KD * derivative;
         turn = clamp(turn, -AIM_MAX_TURN, AIM_MAX_TURN);
 
         aimPrevError = error;
@@ -337,6 +340,7 @@ public abstract class PineapplesBOT extends OpMode {
 
         return AIM_INVERT ? -turn : turn;
     }
+
 
 
     static final int LIFT_UP_POS = 400;
@@ -371,6 +375,10 @@ public abstract class PineapplesBOT extends OpMode {
     void nextShootStep() {
         shootingcurstep++;
         stepStartTime = System.currentTimeMillis();
+
+        // HARD reset aim controller
+        aimPrevError = 0;
+        aimPrevTime = 0;
     }
 
 
@@ -418,7 +426,7 @@ public abstract class PineapplesBOT extends OpMode {
 
         Pose llpose = getRobotPoseFromCamera();
 
-        if (llpose != null) {
+        if (llpose != null && !automatedDrive) {
             double distan = distanceTOGOAL(curx, cury);
             distan = Math.max(distan, 10);
             curx += (llpose.getX() - curx) * 1 / distan;
@@ -474,6 +482,8 @@ public abstract class PineapplesBOT extends OpMode {
 
             PathChain shootPath = follower.pathBuilder()
                     .addPath(new Path(new BezierLine(follower::getPose, target)))
+                    .setTranslationalConstraint(3.0)
+                    .setHeadingConstraint(Math.toRadians(3))
                     .setHeadingInterpolation(
                             HeadingInterpolator.linearFromPoint(
                                     follower::getHeading,
@@ -554,6 +564,8 @@ public abstract class PineapplesBOT extends OpMode {
         //add in launch zone later
         if ("shooting".equals(curstep)) {
 
+            follower.setTeleOpDrive(0, 0, 0, true);
+
             if (stepStartTime == 0) {
                 stepStartTime = System.currentTimeMillis();
             }
@@ -575,24 +587,64 @@ public abstract class PineapplesBOT extends OpMode {
             switch (step.name) {
 
                 case "aim":
-
                     double turnCmd = limelightTurnCmd();
-
-                    // HARD override — no smoothing, no stored cmdTurn
                     follower.setTeleOpDrive(0, 0, -turnCmd, true);
 
-                    shootingspeed = qspeed;
+                    shootingspeed = 1300;
                     intakingspeed = 1300;
 
                     if (limelightAligned()) {
-                        follower.setTeleOpDrive(0, 0, 0, true);
-                        nextShootStep();
-                    }
+                        if (aimStableSince == 0)
+                            aimStableSince = System.currentTimeMillis();
 
+                        if (System.currentTimeMillis() - aimStableSince >= AIM_STABLE_MS) {
+                            follower.setTeleOpDrive(0, 0, 0, true);
+                            nextShootStep();
+                            aimStableSince = 0;
+                        }
+                    } else {
+                        aimStableSince = 0;
+                    }
                     break;
 
 
+
                 case "prepare":
+
+                    double distance = distanceTOGOAL(curx, cury);
+                    //qspeed = lookupShooterSpeed(distance);
+                    qspeed =  25 * (distance - 45) + 1225;
+
+                    if (distance < 70) {
+                        shootingSteps = new ShootStep[] {
+                                //new ShootStep("increase", -1),
+                                new ShootStep("aim", -1),        // limelight gated
+                                new ShootStep("prepare", 0),     // immediate
+                                new ShootStep("check", 1500),       // shooter stable gated
+                                new ShootStep("mup", 750),
+                                //new ShootStep("decrease", -1),
+                                new ShootStep("check", 150),       // shooter stable gated
+                                new ShootStep("rdown", 250),
+                                new ShootStep("check", 150),       // shooter stable gated
+                                new ShootStep("ldown", 250),
+                                new ShootStep("done", -1)
+                        };
+                        AIM_TX_OFFSET_DEG = -0.0;
+                    } else {
+                        shootingSteps = new ShootStep[] {
+                                new ShootStep("aim", -1),        // limelight gated
+                                new ShootStep("prepare", 0),     // immediate
+                                new ShootStep("check", 1500),       // shooter stable gated
+                                new ShootStep("mup", 750),
+                                new ShootStep("check", 750),       // shooter stable gated
+                                new ShootStep("rdown", 700),
+                                new ShootStep("check", 750),       // shooter stable gated
+                                new ShootStep("ldown", 700),
+                                new ShootStep("done", -1)
+                        };
+                        AIM_TX_OFFSET_DEG = 0.0;
+                    }
+
                     follower.setTeleOpDrive(0, 0, 0, true);
                     shootingspeed = qspeed;
                     //Common.madvance.setPosition(M_DOWN);
@@ -723,37 +775,6 @@ public abstract class PineapplesBOT extends OpMode {
         ((DcMotorEx) Common.shoot2).setVelocity(-shootingspeed);
 
 
-        double distance = distanceTOGOAL(curx, cury);
-        qspeed = lookupShooterSpeed(distance);
-
-        if (distance < 70) {
-            shootingSteps = new ShootStep[] {
-                    new ShootStep("aim", -1),        // limelight gated
-                    new ShootStep("prepare", 0),     // immediate
-                    new ShootStep("check", 1500),       // shooter stable gated
-                    new ShootStep("mup", 750),
-                    //new ShootStep("check", 750),       // shooter stable gated
-                    new ShootStep("rdown", 700),
-                    //new ShootStep("check", 750),       // shooter stable gated
-                    new ShootStep("ldown", 700),
-                    new ShootStep("done", -1)
-            };
-            AIM_TX_OFFSET_DEG = -6.0;
-        } else {
-            shootingSteps = new ShootStep[] {
-                    new ShootStep("aim", -1),        // limelight gated
-                    new ShootStep("prepare", 0),     // immediate
-                    new ShootStep("check", 1500),       // shooter stable gated
-                    new ShootStep("mup", 750),
-                    new ShootStep("check", 750),       // shooter stable gated
-                    new ShootStep("rdown", 700),
-                    new ShootStep("check", 750),       // shooter stable gated
-                    new ShootStep("ldown", 700),
-                    new ShootStep("done", -1)
-            };
-            AIM_TX_OFFSET_DEG = 0.0;
-        }
-
         // --- CORE STATE ---
         telemetry.addData("Mode", curstep);
         telemetry.addData("ShootStep",
@@ -774,6 +795,13 @@ public abstract class PineapplesBOT extends OpMode {
         telemetry.addData("LL valid", rr != null && rr.isValid());
         if (rr != null && rr.isValid()) {
             telemetry.addData("LL tx", "%.2f", rr.getTx());
+        }
+
+        LLResult result = limelight.getLatestResult();
+        if (result != null && result.isValid()) {
+            for (LLResultTypes.FiducialResult tag : result.getFiducialResults()) {
+                telemetry.addData("TAG ID", tag.getFiducialId());
+            }
         }
 
         telemetry.update();
@@ -817,6 +845,9 @@ public abstract class PineapplesBOT extends OpMode {
         Pose3D llpose = result.getBotpose();
         if (llpose == null) return null;
 
+        if (!limelightHasValidTarget(result)) return null;
+
+
         double xMeters = llpose.getPosition().x;
         double yMeters = llpose.getPosition().y;
 
@@ -844,14 +875,31 @@ public abstract class PineapplesBOT extends OpMode {
         }
     }
 
+
     protected static double distanceTOGOAL(double x, double y) {
         return Math.sqrt(Math.pow(128 - x, 2) + Math.pow(128 - y, 2));
     }
 
     private boolean limelightAligned() {
         LLResult r = limelight.getLatestResult();
-        return r != null && r.isValid() && Math.abs(r.getTx() - AIM_TX_OFFSET_DEG) <= AIM_TX_TOL_DEG;
+        if (!limelightHasValidTarget(r)) return false;
+
+        return Math.abs(r.getTx() - AIM_TX_OFFSET_DEG) <= AIM_TX_TOL_DEG;
     }
+
+
+
+    private boolean limelightHasValidTarget(LLResult r) {
+        if (r == null || !r.isValid()) return false;
+
+        List<LLResultTypes.FiducialResult> tags = r.getFiducialResults();
+        if (tags.isEmpty()) return false;
+
+        // Limelight primary target = index 0
+        return tags.get(0).getFiducialId() != 23;
+    }
+
+
 
     private double expo(double input, double exponent) {
         return Math.copySign(Math.pow(Math.abs(input), exponent), input);

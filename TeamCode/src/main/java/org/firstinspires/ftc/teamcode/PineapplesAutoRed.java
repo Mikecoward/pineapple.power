@@ -12,6 +12,25 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
+// if the order is GPP
+// shoot 2 purples, out take green
+// go to next set of 3 and do PGP (set 1)
+// go to next set of 3 and do PGP (set 3)
+// go to middle and outake G and do PP
+
+// if the order if PGP
+// shoot PGP
+// go to next set of 3 and do PGP (set 1)
+// go to next set of 3 and do PGP (set 3)
+// go to middle and outake G and do PP
+
+// if the order is PPG
+// shoot P outaken rest
+// go to next set of 3 and do PGP (set 1)
+// go to next set of 3 and do PGP (set 3)
+// go to middle and outake G and do PP
+
+
 @Configurable
 @Autonomous(name = "NM - Pineapple Auto RED SHOOT", group = "Autonomous")
 public class PineapplesAutoRed extends OpMode {
