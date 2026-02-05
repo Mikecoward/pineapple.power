@@ -330,6 +330,7 @@ public abstract class PineapplesBOT extends OpMode {
         long now = System.nanoTime();
         double dt = (aimPrevTime == 0) ? 0.02 : (now - aimPrevTime) / 1e9;
 
+        dt = Math.max(dt, 0.01); // add this
         double derivative = (error - aimPrevError) / dt;
 
         double turn = AIM_KP * error + AIM_KD * derivative;
@@ -466,7 +467,6 @@ public abstract class PineapplesBOT extends OpMode {
             double mult = slowMode ? slowModeMultiplier : 1.0;
             mult *= driveSpeedCap; // Apply speed cap to all movements
 
-            cmdTurn = expo(rawTurn, 1.5) * mult;
 
             if (targetY == 0 && targetX == 0 && targetTurn == 0) {
                 follower.setTeleOpDrive( 0, 0, 0, false );
@@ -645,7 +645,8 @@ public abstract class PineapplesBOT extends OpMode {
                         AIM_TX_OFFSET_DEG = 0.0;
                     }
 
-                    follower.setTeleOpDrive(0, 0, 0, true);
+                    follower.setTeleOpDrive(0, 0, 0, false);
+                    follower.startTeleopDrive();
                     shootingspeed = qspeed;
                     //Common.madvance.setPosition(M_DOWN);
                     Common.radvance.setPosition(R_UP);
