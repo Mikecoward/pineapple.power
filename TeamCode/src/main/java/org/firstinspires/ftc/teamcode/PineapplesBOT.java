@@ -265,20 +265,29 @@ public abstract class PineapplesBOT extends OpMode {
     // LOOK UP TABLE
     // Distance (inches) -> Shooter speed (ticks/sec)
     static double[][] DISTANCE_SPEED_TABLE = {
-            { 45, 1225 },
-            { 50, 1275 },
-            { 55, 1280 },
-            { 57, 1300 },
-            { 59, 1310 },
-            { 61, 1325 },
-            { 63, 1330 },
-            { 65, 1350 },
-            { 68, 1360 },
-            { 70, 1375 },
-            { 75, 1400 },
-            { 80, 1425 },
-            { 85, 1475 },
-            { 100, 1940},
+            { 45, 1230 },
+            { 50, 1290 },
+            { 52, 1300 },
+            { 53, 1320 },
+            { 54, 1325 },
+            { 55, 1325 },
+            { 56, 1330 },
+            { 58, 1340 },
+            { 60, 1340 },
+            { 62, 1365 },
+            { 64, 1375 },
+            { 66, 1380 },
+            { 68, 1380 },
+            { 70, 1400 },
+            { 72, 1405 },
+            { 74, 1405 },
+            { 76, 1425 },
+            { 78, 1430 },
+            { 80, 1450 },
+            { 82, 1455 },
+            { 84, 1500 },
+            { 85, 1505 },
+            { 100, 1940 },
 
     };
 
@@ -300,8 +309,8 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     // LIMELIGHT CODE:
-    static double AIM_TX_OFFSET_DEG = -6.0;
-    static final double AIM_TX_TOL_DEG = 1.0;
+    static double AIM_TX_OFFSET_DEG = 0.0;
+    static final double AIM_TX_TOL_DEG = 0.5;
 
     static double AIM_KD = 0.002;   // start small
     static double AIM_KP = 0.01;
@@ -357,11 +366,11 @@ public abstract class PineapplesBOT extends OpMode {
     // --> SHOOTER_STABLE_MS how long it has to be stable for
     long shooterStableSince = 0;
     static final int SHOOTER_TOL = 10;
-    static final int SHOOTER_STABLE_MS = 250;
+    static final int SHOOTER_STABLE_MS = 500;
 
 
     static final double M_UP = 0.785;
-    static final double M_DOWN = 0.610;
+    static final double M_DOWN = 0.720;
 
     static final double R_DOWN = 0.57;
     static final double L_DOWN = 0.58;
@@ -384,14 +393,14 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     ShootStep[] shootingSteps = {
-            new ShootStep("aim", -1),        // limelight gated
+            new ShootStep("aim", 1000),        // limelight gated
             new ShootStep("prepare", 0),     // immediate
-            new ShootStep("check", 1500),       // shooter stable gated
-            new ShootStep("mup", 750),
-            //new ShootStep("check", 750),       // shooter stable gated
-            new ShootStep("rdown", 700),
-            //new ShootStep("check", 750),       // shooter stable gated
-            new ShootStep("ldown", 700),
+            new ShootStep("check", 1500),
+            new ShootStep("mup", 400),
+            new ShootStep("check", 250),       // shooter stable gated
+            new ShootStep("rdown", 500),
+            new ShootStep("check", 250),       // shooter stable gated
+            new ShootStep("ldown", 500),
             new ShootStep("done", -1)
     };
 
@@ -429,7 +438,7 @@ public abstract class PineapplesBOT extends OpMode {
 
         if (llpose != null && !automatedDrive) {
             double distan = distanceTOGOAL(curx, cury);
-            distan = Math.max(distan, 10);
+            distan = Math.max(distan, 50);
             curx += (llpose.getX() - curx) * 1 / distan;
             cury += (llpose.getY() - cury) * 1 / distan;
 
@@ -478,12 +487,16 @@ public abstract class PineapplesBOT extends OpMode {
         // ---------------> SHOOTING (dynamic closest point on y=x from (72,72)->(90,90))
         if (gamepad1.dpad_up && !automatedDrive) {
 
+            shootingspeed = 1300;
+
             Pose target = closestPointOnShootLine(follower.getPose());
 
             PathChain shootPath = follower.pathBuilder()
                     .addPath(new Path(new BezierLine(follower::getPose, target)))
-                    .setTranslationalConstraint(3.0)
-                    .setHeadingConstraint(Math.toRadians(3))
+                    .setVelocityConstraint(5)
+                    .setTranslationalConstraint(1.0)
+                    .setHeadingConstraint(.01)
+
                     .setHeadingInterpolation(
                             HeadingInterpolator.linearFromPoint(
                                     follower::getHeading,
@@ -581,6 +594,11 @@ public abstract class PineapplesBOT extends OpMode {
             double shooterVel2 = ((DcMotorEx) Common.shoot2).getVelocity();
             double now = System.currentTimeMillis();
 
+            double distance = distanceTOGOAL(curx, cury);
+            qspeed = lookupShooterSpeed(distance);
+
+
+            Common.advancewheel.setPower(1);
 
             advanced = false;
 
@@ -605,45 +623,14 @@ public abstract class PineapplesBOT extends OpMode {
                     } else {
                         aimStableSince = 0;
                     }
+
+                    if (elapsed >= step.durationMs) nextShootStep();
+
                     break;
 
 
 
                 case "prepare":
-
-                    double distance = distanceTOGOAL(curx, cury);
-                    //qspeed = lookupShooterSpeed(distance);
-                    qspeed =  25 * (distance - 45) + 1225;
-
-                    if (distance < 70) {
-                        shootingSteps = new ShootStep[] {
-                                //new ShootStep("increase", -1),
-                                new ShootStep("aim", -1),        // limelight gated
-                                new ShootStep("prepare", 0),     // immediate
-                                new ShootStep("check", 1500),       // shooter stable gated
-                                new ShootStep("mup", 750),
-                                //new ShootStep("decrease", -1),
-                                new ShootStep("check", 150),       // shooter stable gated
-                                new ShootStep("rdown", 250),
-                                new ShootStep("check", 150),       // shooter stable gated
-                                new ShootStep("ldown", 250),
-                                new ShootStep("done", -1)
-                        };
-                        AIM_TX_OFFSET_DEG = -0.0;
-                    } else {
-                        shootingSteps = new ShootStep[] {
-                                new ShootStep("aim", -1),        // limelight gated
-                                new ShootStep("prepare", 0),     // immediate
-                                new ShootStep("check", 1500),       // shooter stable gated
-                                new ShootStep("mup", 750),
-                                new ShootStep("check", 750),       // shooter stable gated
-                                new ShootStep("rdown", 700),
-                                new ShootStep("check", 750),       // shooter stable gated
-                                new ShootStep("ldown", 700),
-                                new ShootStep("done", -1)
-                        };
-                        AIM_TX_OFFSET_DEG = 0.0;
-                    }
 
                     follower.setTeleOpDrive(0, 0, 0, false);
                     follower.startTeleopDrive();
@@ -651,6 +638,7 @@ public abstract class PineapplesBOT extends OpMode {
                     //Common.madvance.setPosition(M_DOWN);
                     Common.radvance.setPosition(R_UP);
                     Common.ladvance.setPosition(L_UP);
+                    //Common.madvance.setPosition(M_DOWN);
                     nextShootStep();
                     break;
 
@@ -677,7 +665,6 @@ public abstract class PineapplesBOT extends OpMode {
                     break;
 
                 case "mup":
-                    Common.advancewheel.setPower(1);
                     Common.madvance.setPosition(M_UP);
                     if (elapsed >= step.durationMs) nextShootStep();
                     break;
@@ -693,12 +680,12 @@ public abstract class PineapplesBOT extends OpMode {
                     break;
 
                 case "increase":
-                    shootingspeed += 30;
+                    shootingspeed += 10;
                     nextShootStep();
                     break;
 
                 case "decrease":
-                    shootingspeed -= 30;
+                    shootingspeed -= 10;
                     nextShootStep();
                     break;
 
@@ -772,8 +759,14 @@ public abstract class PineapplesBOT extends OpMode {
 
         //motors
         ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
-        ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
-        ((DcMotorEx) Common.shoot2).setVelocity(-shootingspeed);
+        if (shootingspeed == 0) {
+            shootingspeed = .9 * ((DcMotorEx) Common.shoot).getVelocity();
+            ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
+            ((DcMotorEx) Common.shoot2).setVelocity(-shootingspeed);
+        } else {
+            ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
+            ((DcMotorEx) Common.shoot2).setVelocity(-shootingspeed);
+        }
 
 
         // --- CORE STATE ---
