@@ -378,7 +378,8 @@ public abstract class PineapplesBOT extends OpMode {
     // shooting logic,
     // --> shooterStableSince is how long the shooter was stable and in range for
     // --> SHOOTER_TOL is how much tolerance is both ways (20 degrees)
-    // --> SHOOTER_STABLE_MS how long it has to be stable for
+    // --> SHOOTER_STABLE_MS how long it has to be stable for1
+
     long shooterStableSince = 0;
     static final int SHOOTER_TOL = 10;
     static final int SHOOTER_STABLE_MS = 500;

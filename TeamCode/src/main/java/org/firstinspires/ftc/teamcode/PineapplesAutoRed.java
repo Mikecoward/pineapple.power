@@ -38,7 +38,7 @@ import java.util.List;
 @Autonomous(name = "NM - Pineapple Auto RED SHOOT", group = "Autonomous")
 public class PineapplesAutoRed extends OpMode {
 
-    /* ================= CONSTANTS ================= */
+    /* ================= CONSTANTS 1 ================= */
     private static final double NORMAL_SPEED = 0.45;
     private static final double SLOW_SPEED = 0.35;
     private static final double INTAKE_RPM = 1300;
