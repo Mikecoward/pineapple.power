@@ -185,7 +185,7 @@ public abstract class PineapplesBOT extends OpMode {
     };
 
     static final double[] SHOOT_SPEEDS = {
-            1300, 1320, 1340, 1280
+            1500, 1360, 1300, 1530
     };
 
     protected Pose[] poseArray;
@@ -212,8 +212,8 @@ public abstract class PineapplesBOT extends OpMode {
     double DRIVE_TICKS_PER_SEC_MAX = 2800.0;
 
     double MIDDLE_BASE_POSITION = 0.69;
-    double RIGHT_BASE_POSITION = 0.74;
-    double LEFT_BASE_POSITION = 0.74; // 70
+    double RIGHT_BASE_POSITION = 0.69;
+    double LEFT_BASE_POSITION = 0.69; // 70
 
     boolean slow = false;
     double slowtimer = 500;
@@ -412,9 +412,9 @@ public abstract class PineapplesBOT extends OpMode {
             new ShootStep("prepare", 0),     // immediate
             new ShootStep("check", 1500),
             new ShootStep("mup", 400),
-            new ShootStep("check", 250),       // shooter stable gated
+            new ShootStep("check", 750),       // shooter stable gated
             new ShootStep("rdown", 500),
-            new ShootStep("check", 250),       // shooter stable gated
+            new ShootStep("check", 750),       // shooter stable gated
             new ShootStep("ldown", 500),
             new ShootStep("done", -1)
     };
@@ -536,9 +536,7 @@ public abstract class PineapplesBOT extends OpMode {
             currentAutoTarget = AutoTarget.NONE;
         }
 
-        if (!gamepad1.dpad_up) {
-            shooterEnabled = false;
-        }
+
 
         // ---------------> PICKUP
 
@@ -599,6 +597,8 @@ public abstract class PineapplesBOT extends OpMode {
         //add in launch zone later
         if ("shooting".equals(curstep)) {
 
+            shooterEnabled = true;
+
             int shootIndex = closestShootIndex(follower.getPose());
             qspeed = SHOOT_SPEEDS[shootIndex];
 
@@ -628,7 +628,7 @@ public abstract class PineapplesBOT extends OpMode {
 
             switch (step.name) {
 
-                case "aim":
+                case  "aim":
                     double turnCmd = limelightTurnCmd();
                     follower.setTeleOpDrive(0, 0, -turnCmd, true);
 
@@ -748,6 +748,7 @@ public abstract class PineapplesBOT extends OpMode {
             shooterStableSince = 0;
             aimPrevError = 0;
             aimPrevTime = 0;
+            shooterEnabled = false;
 
             Common.advancewheel.setPower(-1);
 
