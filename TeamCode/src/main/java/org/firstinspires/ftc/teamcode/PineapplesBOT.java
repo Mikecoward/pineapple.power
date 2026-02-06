@@ -168,23 +168,35 @@ public abstract class PineapplesBOT extends OpMode {
     protected static final Pose[] poseArrayBlue = {
             new Pose(6.86, 135.11, Math.toRadians(0)), // 0 Blue Start Pose
 
-            new Pose(72, 72, Math.toRadians(225)), // 1 Blue shoot1 Pose
-
             new Pose(17, 17, Math.toRadians(225)),// 3 RED Pickup Pose
 
             new Pose( 135, 60, Math.toRadians(20)), // RED GATE POSE
 
-            new Pose (33, 27, Math.toRadians(225)) // RED LIFTING
+            new Pose (33, 27, Math.toRadians(225)), // RED LIFTING
+
+    };
+
+    // ---- Fixed shooting points ----
+    protected static final Pose[] SHOOT_POINTS = {
+            new Pose(72, 72, Math.toRadians(225)),
+            new Pose(86, 86, Math.toRadians(225)),
+            new Pose(100, 100, Math.toRadians(225)),
+            new Pose(58, 85, Math.toRadians(215))
+    };
+
+    static final double[] SHOOT_SPEEDS = {
+            1300, 1320, 1340, 1280
     };
 
     protected Pose[] poseArray;
 
     protected enum AutoTarget {
         NONE(-1),
-        shooting1(1),
         PICKUP(2),
         GATE(3),
-        LIFTING(4);
+        LIFTING(4),
+        shooting1(0);
+
 
         public final int value;
 
@@ -264,6 +276,7 @@ public abstract class PineapplesBOT extends OpMode {
 
     // LOOK UP TABLE
     // Distance (inches) -> Shooter speed (ticks/sec)
+    /*
     static double[][] DISTANCE_SPEED_TABLE = {
             { 45, 1230 },
             { 50, 1290 },
@@ -290,6 +303,8 @@ public abstract class PineapplesBOT extends OpMode {
             { 100, 1940 },
 
     };
+
+     */
 
 
 
@@ -421,6 +436,7 @@ public abstract class PineapplesBOT extends OpMode {
     int selectedTableIndex = 0;
     static final double SPEED_STEP = 25;   // how much each button press changes speed
 
+    boolean shooterEnabled = false;
 
     @Override
     public void loop() {
@@ -488,8 +504,11 @@ public abstract class PineapplesBOT extends OpMode {
         if (gamepad1.dpad_up && !automatedDrive) {
 
             shootingspeed = 1300;
+            shooterEnabled = true;
 
-            Pose target = closestPointOnShootLine(follower.getPose());
+            int shootIndex = closestShootIndex(follower.getPose());
+            Pose target = SHOOT_POINTS[shootIndex];
+            qspeed = SHOOT_SPEEDS[shootIndex];
 
             PathChain shootPath = follower.pathBuilder()
                     .addPath(new Path(new BezierLine(follower::getPose, target)))
@@ -517,6 +536,9 @@ public abstract class PineapplesBOT extends OpMode {
             currentAutoTarget = AutoTarget.NONE;
         }
 
+        if (!gamepad1.dpad_up) {
+            shooterEnabled = false;
+        }
 
         // ---------------> PICKUP
 
@@ -577,6 +599,9 @@ public abstract class PineapplesBOT extends OpMode {
         //add in launch zone later
         if ("shooting".equals(curstep)) {
 
+            int shootIndex = closestShootIndex(follower.getPose());
+            qspeed = SHOOT_SPEEDS[shootIndex];
+
             follower.setTeleOpDrive(0, 0, 0, true);
 
             if (stepStartTime == 0) {
@@ -595,7 +620,6 @@ public abstract class PineapplesBOT extends OpMode {
             double now = System.currentTimeMillis();
 
             double distance = distanceTOGOAL(curx, cury);
-            qspeed = lookupShooterSpeed(distance);
 
 
             Common.advancewheel.setPower(1);
@@ -759,14 +783,15 @@ public abstract class PineapplesBOT extends OpMode {
 
         //motors
         ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
-        if (shootingspeed == 0) {
-            shootingspeed = .9 * ((DcMotorEx) Common.shoot).getVelocity();
-            ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
-            ((DcMotorEx) Common.shoot2).setVelocity(-shootingspeed);
+        if (shooterEnabled) {
+            ((DcMotorEx) Common.shoot).setVelocity(qspeed);
+            ((DcMotorEx) Common.shoot2).setVelocity(-qspeed);
         } else {
-            ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);
-            ((DcMotorEx) Common.shoot2).setVelocity(-shootingspeed);
+            // let it coast naturally
+            ((DcMotorEx) Common.shoot).setPower(0);
+            ((DcMotorEx) Common.shoot2).setPower(0);
         }
+
 
 
         // --- CORE STATE ---
@@ -802,35 +827,26 @@ public abstract class PineapplesBOT extends OpMode {
 
     }
 
-    private Pose closestPointOnShootLine(Pose fromPose) {
-        double x = fromPose.getX();
-        double y = fromPose.getY();
+    private int closestShootIndex(Pose fromPose) {
+        int bestIndex = 0;
+        double smallestDist = Double.MAX_VALUE;
 
-        // projection onto y=x
-        double t = (x + y) / 2.0;
+        for (int i = 0; i < SHOOT_POINTS.length; i++) {
+            Pose p = SHOOT_POINTS[i];
 
-        // clamp to segment [72, 90]
-        t = Math.max(72.0, Math.min(90.0, t));
+            double dx = fromPose.getX() - p.getX();
+            double dy = fromPose.getY() - p.getY();
+            double dist = dx * dx + dy * dy;
 
-        // keep your shooting heading (225°) or choose something else
-        return new Pose(t, t, Math.toRadians(225));
-    }
-
-    protected double lookupShooterSpeed(double distanceInches) {
-        double closestSpeed = DISTANCE_SPEED_TABLE[0][1];
-        double smallestError = Math.abs(distanceInches - DISTANCE_SPEED_TABLE[0][0]);
-
-        for (int i = 1; i < DISTANCE_SPEED_TABLE.length; i++) {
-            double tableDistance = DISTANCE_SPEED_TABLE[i][0];
-            double error = Math.abs(distanceInches - tableDistance);
-
-            if (error < smallestError) {
-                smallestError = error;
-                closestSpeed = DISTANCE_SPEED_TABLE[i][1];
+            if (dist < smallestDist) {
+                smallestDist = dist;
+                bestIndex = i;
             }
         }
-        return closestSpeed;
+
+        return bestIndex;
     }
+
 
     protected Pose getRobotPoseFromCamera() {
         LLResult result = limelight.getLatestResult();
