@@ -68,7 +68,7 @@ public class PineapplesAutoRed extends OpMode {
             new Pose(88.3, 61.4, Math.toRadians(-90)), //intermediate
             new Pose(110.1, 49.6, Math.toRadians(-90)), //align 3
             new Pose(110.1, 37.4, Math.toRadians(-90)), //collect 3
-            new Pose(96, 96, Math.toRadians(225))   // shoot 3
+            new Pose(85.5, 105.0, Math.toRadians(-150.1))   // shoot 3
     };
 
 
@@ -365,7 +365,7 @@ public class PineapplesAutoRed extends OpMode {
 
                 // Wait BEFORE opening gate
                 if (!gateOpened && outtakeElapsed >= 200) { // 👈 motor spin-up time
-                    Common.radvance.setPosition(R_DOWN);
+                    Common.madvance.setPosition(M_UP);
                     gateOpened = true;
                 }
 
@@ -418,7 +418,8 @@ public class PineapplesAutoRed extends OpMode {
 
 
         // set power
-        if (s == 4 || s == 7) {
+        // Slow ONLY when driving INTO intake poses
+        if (s == 4 || s == 8) {   // 👈 collect 2 AND collect 3
             follower.setMaxPower(DRIVE_POWER_INTAKE);
         } else {
             follower.setMaxPower(DRIVE_POWER_NORMAL);
@@ -446,29 +447,18 @@ public class PineapplesAutoRed extends OpMode {
 
     private void buildPaths() {
         paths = new PathChain[RED_POSES.length];
+
         for (int i = 1; i < RED_POSES.length; i++) {
-            boolean slow = (i == 4 || i == 7);
-            boolean semiSlowLastIntake = (i == 8);
-
-
-            double speed;
-            if (slow) {
-                speed = SLOW_SPEED;
-            } else if (semiSlowLastIntake) {
-                speed = 0.75; // 👈 gentle slowdown, tweak if needed
-            } else {
-                speed = NORMAL_SPEED;
-            }
             paths[i] = follower.pathBuilder()
                     .addPath(new BezierLine(RED_POSES[i - 1], RED_POSES[i]))
                     .setLinearHeadingInterpolation(
                             RED_POSES[i - 1].getHeading(),
-                            RED_POSES[i].getHeading(),
-                            speed
+                            RED_POSES[i].getHeading()
                     )
                     .build();
         }
     }
+
 
 
     // ================= LIMELIGHT =================
@@ -589,14 +579,17 @@ public class PineapplesAutoRed extends OpMode {
             if (shootCycle == 0) {
                 // FIRST shooting position logic for tag 21
                 shootingSteps = new ShootStep[] {
-                        new ShootStep("aim", 500),      // limelight gated
+                        new ShootStep("aim", 1200),      // limelight gated
+                        new ShootStep("outtake", 1200),
                         new ShootStep("prepare", 0),   // immediate
-                        new ShootStep("check", 250),  // shooter stable gated
-                        new ShootStep("mup", 750),
+                        new ShootStep("check", 1500),  // shooter stable gated
+                       //new ShootStep("mup", 750),
+                        //new ShootStep("check", 750),
+                        new ShootStep("rdown", 700),
                         new ShootStep("check", 750),
                         new ShootStep("ldown", 700),
-                        new ShootStep("check", 1000),
-                        new ShootStep("outtake", 500),
+                        //new ShootStep("check", 1000),
+                        //new ShootStep("outtake", 1200),
                         new ShootStep("done", -1)
                 };
             }

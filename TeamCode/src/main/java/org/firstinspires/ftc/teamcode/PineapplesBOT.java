@@ -213,8 +213,9 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     static final double[] SHOOT_SPEEDS = {
-            1500, 1360, 1300, 1530
+            1500, 1360, 1300
     };
+    // add 1530
 
 
     protected Pose[] poseArray;
@@ -259,6 +260,8 @@ public abstract class PineapplesBOT extends OpMode {
 
     int targetPosition = 0;
     double qspeed = 0;
+
+    static double AIM_TX_OFFSET_DEG = -3.0;
 
 
     @Override
@@ -339,17 +342,19 @@ public abstract class PineapplesBOT extends OpMode {
         if (getAlliance() == Alliance.BLUE) {
             SHOOT_POINTS = new Pose[] {
                     new Pose(72, 72, Math.toRadians(315)),
-                    new Pose(84, 84 ,Math.toRadians(315)),
-                    new Pose(96, 96, Math.toRadians(315)),
-                    new Pose(60, 84, Math.toRadians(305))
+                    new Pose(60, 84, Math.toRadians(315)),
+                    new Pose(48, 96, Math.toRadians(315)),
+                   //new Pose(60, 84, Math.toRadians(305))
             };
+            AIM_TX_OFFSET_DEG = 3.0;
         } else {
             SHOOT_POINTS = new Pose[] {
                     new Pose(72, 72, Math.toRadians(225)),
                     new Pose(84, 84 ,Math.toRadians(225)),
                     new Pose(96, 96, Math.toRadians(225)),
-                    new Pose(60, 84, Math.toRadians(215))
+                    //new Pose(60, 84, Math.toRadians(215))
             };
+            AIM_TX_OFFSET_DEG = -3.0;
         }
     }
 
@@ -422,7 +427,6 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     // LIMELIGHT CODE:
-    static double AIM_TX_OFFSET_DEG = -3.0;
     static final double AIM_TX_TOL_DEG = 0.5;
 
 
@@ -579,6 +583,10 @@ public abstract class PineapplesBOT extends OpMode {
     public void loop() {
 
 
+        if (gamepad1.right_trigger > 0.6) {
+            updatePoseFromLL();
+        }
+
         follower.update();
 
 
@@ -605,9 +613,7 @@ public abstract class PineapplesBOT extends OpMode {
         }
 
 
-        if (gamepad1.right_trigger > 0.6) {
-            updatePoseFromLL();
-        }
+
         telemetry.clear();
         telemetry.addData("trigger", gamepad1.right_trigger);
 
@@ -646,16 +652,19 @@ public abstract class PineapplesBOT extends OpMode {
             double mult = slowMode ? slowModeMultiplier : 1.0;
             mult *= driveSpeedCap; // Apply speed cap to all movements
 
+            double driveX = cmdX;
+            double driveY = cmdY;
+
             if (getAlliance() == Alliance.BLUE) {
-                cmdX = -cmdX;
-                cmdY = -cmdY;
+                driveX = -driveX;
+                driveY = -driveY;
             }
 
 
             if (targetY == 0 && targetX == 0 && targetTurn == 0) {
                 follower.setTeleOpDrive( 0, 0, 0, false );
             } else {
-                follower.setTeleOpDrive( -cmdY * mult, -cmdX * mult, -cmdTurn * mult, false );
+                follower.setTeleOpDrive(-driveY * mult, -driveX * mult, -cmdTurn * mult, false);
             }
         }
 
@@ -672,12 +681,14 @@ public abstract class PineapplesBOT extends OpMode {
             Pose target = SHOOT_POINTS[shootIndex];
 
             double a = distShootPos(follower.getPose().getX(), follower.getPose().getY(), target.getX(), target.getY());
-            if (a > 50) {
+            if (a > 70) {
                 shootingSteps = new ShootStep[] {
+                        new ShootStep("increase", 5),
                         new ShootStep("aim", 600),        // limelight gated
                         new ShootStep("prepare", 0),     // immediate
-                        new ShootStep("check", 250),
+                        new ShootStep("check", 600),
                         new ShootStep("mup", 400),
+                        new ShootStep("decrease", 5),
                         new ShootStep("check", 750),       // shooter stable gated
                         new ShootStep("rdown", 500),
                         new ShootStep("check", 750),       // shooter stable gated
@@ -686,10 +697,12 @@ public abstract class PineapplesBOT extends OpMode {
                 };
             } else {
                 shootingSteps = new ShootStep[] {
+                        new ShootStep("increase", 5),
                         new ShootStep("aim", 600),        // limelight gated
                         new ShootStep("prepare", 0),     // immediate
                         new ShootStep("check", 1000),
                         new ShootStep("mup", 400),
+                        new ShootStep("decrease", 2),
                         new ShootStep("check", 750),       // shooter stable gated
                         new ShootStep("rdown", 500),
                         new ShootStep("check", 750),       // shooter stable gated
@@ -974,7 +987,7 @@ public abstract class PineapplesBOT extends OpMode {
         } else if ("stagnant".equals(curstep)) {
             if (gamepad1.left_bumper) {
                 Common.radvance.setPosition(.79);
-                Common.madvance.setPosition(.57);
+                Common.madvance.setPosition(.61);
                 Common.ladvance.setPosition(.79);
 
 
@@ -1219,9 +1232,9 @@ public abstract class PineapplesBOT extends OpMode {
 
         // Limelight primary target = index 0
         if (getAlliance() == Alliance.BLUE) {
-            return tags.get(0).getFiducialId() != 23 && tags.get(0).getFiducialId() != 22 && tags.get(0).getFiducialId() != 21 && tags.get(0).getFiducialId() != 20;
-        } else {
             return tags.get(0).getFiducialId() != 23 && tags.get(0).getFiducialId() != 22 && tags.get(0).getFiducialId() != 21 && tags.get(0).getFiducialId() != 24;
+        } else {
+            return tags.get(0).getFiducialId() != 23 && tags.get(0).getFiducialId() != 22 && tags.get(0).getFiducialId() != 21 && tags.get(0).getFiducialId() != 20;
         }
     }
 

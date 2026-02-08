@@ -1,97 +1,162 @@
 package org.firstinspires.ftc.teamcode;
 
+
 import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.PathChain;
+import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.LLResultTypes;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
+
+import java.util.List;
+
+
 @Configurable
-public abstract class PineapplesAutoBlue extends OpMode {
+@Autonomous(name = "NM - Pineapple Auto Blue", group = "Autonomous")
+public class PineapplesAutoBlue extends OpMode {
 
-    public enum Alliance { BLUE, RED }
-    protected abstract Alliance getAlliance();
 
-    /* ================= CONSTANTS ================= */
+    /* ================= CONSTANTS 1 ================= */
+    double NORMAL_SPEED = 0.95;
+    double SLOW_SPEED = 0.45;
+    double INTAKE_RPM = 1300;
+    long PRE_SHOOT_DELAY_MS = 0;
+    long SHOOT_WAIT_MS = 0;
+    long INTAKE_WAIT_MS = 300;
+    long SECOND_INTAKE_EXTRA_MS = 300;
+    double DRIVE_POWER_NORMAL = 1.0;
+    double DRIVE_POWER_INTAKE = 0.65;
 
-    private static final double FIELD_SIZE_IN = 144.0;
 
-    private static final double NORMAL_SPEED = 0.18;
-    private static final double SLOW_SPEED = 0.10;
+    double MIDDLE_BASE_POSITION = 0.69;
+    double RIGHT_BASE_POSITION = 0.79;
+    double LEFT_BASE_POSITION = 0.78;
+    double shootingConst = 1310;
 
-    private static final double INTAKE_RPM = 1300;
 
-    private static final long PRE_SHOOT_DELAY_MS = 1000; // ⭐ NEW: wait after arrival
-    private static final long SHOOT_WAIT_MS = 700;
-    private static final long INTAKE_WAIT_MS = 900;
-    private static final long SECOND_INTAKE_EXTRA_MS = 500;
+    long shooterStableSince = 0;
 
-    /* ================= POSES ================= */
 
-    protected static final Pose[] BLUE_POSES = {
-            new Pose(21, 125, Math.toRadians(145)), // 0 start
+    static final int SHOOTER_TOL = 10;
+    static final int SHOOTER_STABLE_MS = 250;
+    boolean arrived = false;
 
-            new Pose(58, 85, Math.toRadians(-45)),  // 1 shoot 1
-            new Pose(23, 120, Math.toRadians(-90)), // 2 intake move
-            new Pose(23, 85, Math.toRadians(-90)),  // 3 intake 1
 
-            new Pose(58, 85, Math.toRadians(-45)),  // 4 shoot 2
-            new Pose(21, 120, Math.toRadians(-90)), // 5 intake move
-            new Pose(21, 58, Math.toRadians(-90)),  // 6 intake 2
 
-            new Pose(58, 85, Math.toRadians(-45)),  // 7 shoot 3
-            new Pose(21, 120, Math.toRadians(-90)), // 8 intake move
-            new Pose(21, 40, Math.toRadians(-90))   // 9 intake 3
+
+    private static final long ARRIVAL_STABLE_MS = 150; // robot must be idle for 150ms
+    private long arrivedSince = 0; // tracks when robot first stops
+
+
+
+
+    /* ================= RED POSES ================= */
+    private static final Pose[] BLUE_POSES = {
+            new Pose(34.4, 125.6, Math.toRadians(180 - 36.03)),   // start
+            new Pose(59.1, 109.7, Math.toRadians(180 - (-56.38))), // check limelight
+            new Pose(48.0, 96.0, Math.toRadians(180 - 225)),       // shoot 1
+            new Pose(33.9, 110.0, Math.toRadians(180 - (-90))),    // align 2
+            new Pose(33.9, 84.0, Math.toRadians(180 - (-90))),     // collect 2
+            new Pose(48.0, 96.0, Math.toRadians(180 - 225)),       // shoot 2
+            new Pose(55.7, 61.4, Math.toRadians(180 - (-90))),     // intermediate
+            new Pose(35.9, 49.6, Math.toRadians(180 - (-90))),     // align 3
+            new Pose(35.9, 37.4, Math.toRadians(180 - (-90))),     // collect 3
+            new Pose(58.5, 105.0, Math.toRadians(180 - (-150.1)))  // shoot 3
     };
 
     /* ================= INTERNAL ================= */
-
-    private Pose[] poses;
     private PathChain[] paths;
     private Follower follower;
-
     private int state = 0;
     private long stateStartTime = 0;
-    private boolean arrived = false;
+    private boolean[] arrivedStates = new boolean[20]; // track per-state arrival
     private int gateStep = 0;
-    private boolean preShootDelayDone = false; // ⭐ NEW
+    private boolean preShootDelayDone = false;
+    private boolean firstShootPositionReached = false;
+    private long shootPositionTime = 0;
 
-    /* ================= MIRROR ================= */
 
-    protected Pose mirrorBlueToRed(Pose p) {
-        return new Pose(
-                FIELD_SIZE_IN - p.getX(),
-                p.getY(),
-                Math.PI - p.getHeading()
-        );
+    static final double M_UP = 0.785;
+    static final double R_DOWN = 0.625;
+    static final double L_DOWN = 0.615;
+    static final double R_UP = 0.79;
+    static final double L_UP = 0.78;
+
+
+    private boolean advanced = false;
+    private double shootingspeed = shootingConst;
+
+
+    private long outtakeStartTime = 0;
+    private boolean gateOpened = false;
+
+
+
+
+    /* ================= SHOOTING LOGIC ================= */
+    static class ShootStep {
+        final String name;
+        final long durationMs; // -1 = condition-based
+
+
+        ShootStep(String name, long durationMs) {
+            this.name = name;
+            this.durationMs = durationMs;
+        }
     }
 
+
+    private ShootStep[] shootingSteps = {
+            new ShootStep("aim", 1500),
+            new ShootStep("prepare", 0),
+            new ShootStep("check", 250),
+            new ShootStep("mup", 750),
+            new ShootStep("check", 750),
+            new ShootStep("rdown", 700),
+            new ShootStep("check", 750),
+            new ShootStep("ldown", 700),
+            new ShootStep("done", -1)
+    };
+
+
+    private int shootingcurstep = 0;
+    private long stepStartTime = 0;
+
+
+    private int detectedTag = -1;
+    private boolean tagLocked = false;
+    private int shootCycle = -1;
+
+
     /* ================= INIT ================= */
+    protected Limelight3A limelight;
+
 
     @Override
     public void init() {
         Common.configRobot(hardwareMap, false);
-
-        poses = new Pose[BLUE_POSES.length];
-        for (int i = 0; i < BLUE_POSES.length; i++) {
-            poses[i] = (getAlliance() == Alliance.BLUE)
-                    ? BLUE_POSES[i]
-                    : mirrorBlueToRed(BLUE_POSES[i]);
-        }
-
         follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(poses[0]);
-
+        follower.setStartingPose(BLUE_POSES[0]);
         buildPaths();
 
-        Common.ladvance.setPosition(0.535);
-        Common.madvance.setPosition(0.56);
-        Common.radvance.setPosition(0.55);
+
+        Common.radvance.setPosition(RIGHT_BASE_POSITION);
+        Common.madvance.setPosition(MIDDLE_BASE_POSITION);
+        Common.ladvance.setPosition(LEFT_BASE_POSITION);
+
+
+        limelight = hardwareMap.get(Limelight3A.class, "limelight");
+        limelight.pipelineSwitch(0);
+        limelight.start();
     }
+
 
     @Override
     public void start() {
@@ -99,144 +164,548 @@ public abstract class PineapplesAutoBlue extends OpMode {
         goToState(state);
     }
 
-    /* ================= LOOP ================= */
 
+    /* ================= LOOP ================= */
     @Override
     public void loop() {
+        telemetry.clear();
+
+
+        Pose pose = follower.getPose();
+        telemetry.addData("Robot X", pose.getX());
+        telemetry.addData("Robot Y", pose.getY());
+        telemetry.addData("Heading", Math.toDegrees(pose.getHeading()));
+        telemetry.addData("State", state);
+        telemetry.addData("Arrived", arrived);
+
+
         follower.update();
+
+
+        // default intake
         ((DcMotorEx) Common.intaking).setVelocity(INTAKE_RPM);
 
-        if (isShootState(state)) {
-            handleShoot();
-            return;
-        }
 
-        if (isIntakeState(state)) {
-            handleIntake();
-            return;
-        }
-
-        if (!arrived && !follower.isBusy()) {
-            arrived = true;
-            stateStartTime = System.currentTimeMillis();
-        }
-
-        if (arrived && System.currentTimeMillis() - stateStartTime > 200) {
-            advance();
-        }
-    }
-
-    /* ================= SHOOT ================= */
-
-    private void handleShoot() {
-
-        // Detect arrival
-        if (!arrived && !follower.isBusy()) {
-            arrived = true;
-            stateStartTime = System.currentTimeMillis();
-            return;
-        }
-
-        if (!arrived) return;
-
-        // ⭐ One-time delay before first gate
-        if (!preShootDelayDone) {
-            if (System.currentTimeMillis() - stateStartTime < PRE_SHOOT_DELAY_MS) {
-                return;
-            }
-            preShootDelayDone = true;
-            stateStartTime = System.currentTimeMillis();
-            return;
-        }
-
-        // Wait between gate actions
-        if (System.currentTimeMillis() - stateStartTime < SHOOT_WAIT_MS) return;
-
+        // Shooting motors
         DcMotorEx s1 = (DcMotorEx) Common.shoot;
         DcMotorEx s2 = (DcMotorEx) Common.shoot2;
-
-        double rpm = 1250;
-        s1.setVelocity(rpm);
-        s2.setVelocity(-rpm);
-
-        if (gateStep == 0) {
-            Common.ladvance.setPosition(0.71);
-        } else if (gateStep == 1) {
-            Common.radvance.setPosition(0.71);
-        } else if (gateStep == 2) {
-            Common.madvance.setPosition(0.718);
-        } else {
-            Common.ladvance.setPosition(0.535);
-            Common.radvance.setPosition(0.55);
-            Common.madvance.setPosition(0.56);
-            gateStep = 0;
-            advance();
-            return;
+        if (!"outtake".equals(
+                shootingSteps[shootingcurstep].name
+        )) {
+            s1.setVelocity(shootingspeed);
+            s2.setVelocity(-shootingspeed);
         }
 
-        gateStep++;
-        stateStartTime = System.currentTimeMillis();
+
+
+
+        // check arrival
+        if (!arrived) {
+            if (!follower.isBusy()) {
+                if (arrivedSince == 0) arrivedSince = System.currentTimeMillis();
+                else if (System.currentTimeMillis() - arrivedSince >= ARRIVAL_STABLE_MS) {
+                    arrived = true;
+                    stateStartTime = System.currentTimeMillis();
+                    telemetry.addLine("Arrived at state pose (stable)");
+                }
+            } else {
+                arrivedSince = 0; // reset if still moving
+            }
+        }
+
+
+        switch (state) {
+            case 1: // limelight check
+                if (arrived) handleCheckLimelight();
+                break;
+
+
+            case 2: case 5: case 9: // shooting
+                // Only shoot if robot has fully arrived and optionally waited PRE_SHOOT_DELAY_MS
+                if (arrived && System.currentTimeMillis() - stateStartTime >= PRE_SHOOT_DELAY_MS) {
+                    handleShoot();
+                } else {
+                    telemetry.addLine("Driving to shooting pose...");
+                }
+                break;
+
+
+            case 3: case 6: case 7:  // driving to stack
+                handleMovement();
+                break;
+
+
+            case 4: case 8: // intake
+                handleIntake();
+                break;
+        }
+
+
+
+
+        telemetry.update();
     }
 
-    /* ================= INTAKE ================= */
 
-    private void handleIntake() {
-        if (!arrived && !follower.isBusy()) {
-            arrived = true;
+
+
+    /* ================= MOVEMENT/SHOOT/INTAKE ================= */
+    private void handleMovement() {
+        Common.radvance.setPosition(RIGHT_BASE_POSITION);
+        Common.ladvance.setPosition(LEFT_BASE_POSITION);
+        if (!arrivedStates[state] && !follower.isBusy()) {
+            arrivedStates[state] = true;
             stateStartTime = System.currentTimeMillis();
         }
+        if (arrivedStates[state] && System.currentTimeMillis() - stateStartTime > 200) {
+            advance();
+        }
+    }
 
-        if (!arrived) return;
+
+    private void handleIntake() {
+        if (!arrivedStates[state] && !follower.isBusy()) {
+            arrivedStates[state] = true;
+            stateStartTime = System.currentTimeMillis();
+        }
+        if (!arrivedStates[state]) return;
+
 
         long wait = INTAKE_WAIT_MS;
-        if (state == 6) wait += SECOND_INTAKE_EXTRA_MS;
+        if (state == 7) wait += SECOND_INTAKE_EXTRA_MS;
+
 
         if (System.currentTimeMillis() - stateStartTime >= wait) {
             advance();
         }
     }
 
-    /* ================= STATE ================= */
 
+    private void handleShoot() {
+        if (stepStartTime == 0) stepStartTime = System.currentTimeMillis();
+
+
+        shootingcurstep = Math.min(shootingcurstep, shootingSteps.length - 1);
+        ShootStep step = shootingSteps[shootingcurstep];
+        long elapsed = System.currentTimeMillis() - stepStartTime;
+
+
+        double shooterVel1 = ((DcMotorEx) Common.shoot).getVelocity();
+        double shooterVel2 = ((DcMotorEx) Common.shoot2).getVelocity();
+        Common.advancewheel.setPower(1);
+        advanced = false;
+
+
+        switch (step.name) {
+            case "aim":
+                //shootingspeed = shootingConst;
+                double turnCmd = limelightTurnCmd();
+                if (limelightAligned()) {
+                    if (aimStableSince == 0) aimStableSince = System.currentTimeMillis();
+                    if (System.currentTimeMillis() - aimStableSince >= AIM_STABLE_MS) {
+                        nextShootStep();
+                        aimStableSince = 0;
+                    }
+                } else {
+                    aimStableSince = 0;
+                }
+                if (elapsed >= step.durationMs) nextShootStep();
+                break;
+
+
+            case "prepare":
+                //shootingspeed = shootingConst;
+                follower.startTeleopDrive();
+                Common.radvance.setPosition(R_UP);
+                Common.ladvance.setPosition(L_UP);
+                nextShootStep();
+                break;
+
+
+            case "check":
+                boolean inRange = Math.abs(shooterVel1 - shootingspeed) <= SHOOTER_TOL &&
+                        Math.abs(shooterVel2 + shootingspeed) <= SHOOTER_TOL;
+                if (inRange) {
+                    if (shooterStableSince == 0) shooterStableSince = System.currentTimeMillis();
+                    if (System.currentTimeMillis() - shooterStableSince >= SHOOTER_STABLE_MS) {
+                        nextShootStep();
+                        advanced = true;
+                    }
+                } else {
+                    shooterStableSince = 0;
+                }
+                if (!advanced && elapsed >= step.durationMs) nextShootStep();
+                break;
+
+
+            case "mup": Common.madvance.setPosition(M_UP); if (elapsed >= step.durationMs) nextShootStep(); break;
+            case "mdown": Common.madvance.setPosition(MIDDLE_BASE_POSITION);
+                if (elapsed >= step.durationMs) nextShootStep();
+                break;
+            case "rdown": Common.radvance.setPosition(R_DOWN); if (elapsed >= step.durationMs) nextShootStep(); break;
+            case "ldown": Common.ladvance.setPosition(L_DOWN); if (elapsed >= step.durationMs) nextShootStep(); break;
+            case "increase": shootingspeed += 10*step.durationMs; nextShootStep(); break;
+            case "decrease": shootingspeed -= 10*step.durationMs; nextShootStep(); break;
+            case "outtake":
+                // Start outtake timing
+                if (outtakeStartTime == 0) {
+                    outtakeStartTime = System.currentTimeMillis();
+                    gateOpened = false;
+                }
+
+
+                // Force outtake speed
+                ((DcMotorEx) Common.shoot).setVelocity(400);
+                ((DcMotorEx) Common.shoot2).setVelocity(-400);
+
+
+                long outtakeElapsed = System.currentTimeMillis() - outtakeStartTime;
+
+
+                // Wait BEFORE opening gate
+                if (!gateOpened && outtakeElapsed >= 200) { // 👈 motor spin-up time
+                    Common.madvance.setPosition(M_UP);
+                    gateOpened = true;
+                }
+
+
+                // Total outtake duration
+                if (outtakeElapsed >= 450) { // 👈 full eject time
+                    outtakeStartTime = 0;
+                    nextShootStep();
+                }
+                break;
+
+
+
+
+
+
+            case "done":
+                // Reset middle gate after shooting
+                Common.madvance.setPosition(MIDDLE_BASE_POSITION);
+
+
+                //shootCycle++; // increment cycle after done
+                advance();
+                break;
+        }
+
+
+        telemetry.update();
+    }
+
+
+    void nextShootStep() {
+        shootingcurstep++;
+        stepStartTime = System.currentTimeMillis();
+    }
+
+
+    /* ================= STATE MACHINE ================= */
     private void advance() {
         state++;
-        if (state >= paths.length) return;
+        if (state >= BLUE_POSES.length) return;
         goToState(state);
     }
 
+
     private void goToState(int s) {
         arrived = false;
-        gateStep = 0;
-        preShootDelayDone = false; // ⭐ reset every shooting state
-        follower.followPath(paths[s], true);
+        shootingcurstep = 0;
+        stepStartTime = 0;
+
+
+        // set power
+        // Slow ONLY when driving INTO intake poses
+        if (s == 4 || s == 8) {   // 👈 collect 2 AND collect 3
+            follower.setMaxPower(DRIVE_POWER_INTAKE);
+        } else {
+            follower.setMaxPower(DRIVE_POWER_NORMAL);
+        }
+
+
+        // Drive to the pose for **all states except idle beyond paths**
+        if (s < paths.length) {
+            follower.followPath(paths[s], true);
+        }
+
+
+        // reset aim if shooting
+        if (s == 2 || s == 5 || s == 8) {
+            aimPrevError = 0;
+            aimPrevTime = 0;
+            shootCycle++;
+            shootingcurstep = 0;
+            configureShootingForTagAndCycle();
+        }
     }
 
-    /* ================= HELPERS ================= */
 
-    private boolean isShootState(int s) {
-        return s == 1 || s == 4 || s == 7;
-    }
 
-    private boolean isIntakeState(int s) {
-        return s == 3 || s == 6 || s == 9;
-    }
 
     private void buildPaths() {
-        paths = new PathChain[poses.length];
-        for (int i = 1; i < poses.length; i++) {
-            boolean slow = isIntakeState(i);
-            double speed = slow ? SLOW_SPEED : NORMAL_SPEED;
+        paths = new PathChain[BLUE_POSES.length];
 
+        for (int i = 1; i < BLUE_POSES.length; i++) {
             paths[i] = follower.pathBuilder()
-                    .addPath(new BezierLine(poses[i - 1], poses[i]))
+                    .addPath(new BezierLine(BLUE_POSES[i - 1], BLUE_POSES[i]))
                     .setLinearHeadingInterpolation(
-                            poses[i - 1].getHeading(),
-                            poses[i].getHeading(),
-                            speed
+                            BLUE_POSES[i - 1].getHeading(),
+                            BLUE_POSES[i].getHeading()
                     )
                     .build();
         }
     }
+
+
+
+    // ================= LIMELIGHT =================
+    static double AIM_TX_OFFSET_DEG = 0.0;
+    static final double AIM_TX_TOL_DEG = 0.5;
+    static double AIM_KD = 0.002;
+    static double AIM_KP = 0.01;
+    private double aimPrevError = 0.0;
+    private long aimPrevTime = 0;
+    static final double AIM_MAX_TURN = 0.12;
+    static boolean AIM_INVERT = false;
+    long aimStableSince = 0;
+    static final int AIM_STABLE_MS = 120;
+
+
+    private int scanForTag() {
+        LLResult r = limelight.getLatestResult();
+        if (r == null || !r.isValid()) return -1;
+        List<LLResultTypes.FiducialResult> tags = r.getFiducialResults();
+        if (tags.isEmpty()) return -1;
+        return tags.get(0).getFiducialId();
+    }
+
+
+    private void handleCheckLimelight() {
+        // Scan for tag if not locked yet
+        if (!tagLocked) {
+            int tagId = scanForTag();
+            if (tagId != -1) {
+                detectedTag = tagId;
+                tagLocked = true;
+            }
+        }
+
+
+        // Print tag info to telemetry
+        if (detectedTag != -1) {
+            telemetry.addData("Detected Tag ID", detectedTag);
+        } else {
+            telemetry.addData("Detected Tag ID", "None");
+        }
+
+
+        // Wait 500ms at this state before advancing
+        if (stepStartTime == 0) stepStartTime = System.currentTimeMillis();
+        if (System.currentTimeMillis() - stepStartTime > 500) {
+            stepStartTime = 0;
+            advance();
+        }
+    }
+
+
+
+
+    private double limelightTurnCmd() {
+        LLResult r = limelight.getLatestResult();
+        if (!limelightHasValidTarget(r)) {
+            aimPrevError = 0;
+            aimPrevTime = 0;
+            return 0.0;
+        }
+
+
+        double tx = r.getTx();
+        double error = tx - AIM_TX_OFFSET_DEG;
+
+
+        if (Math.abs(error) <= AIM_TX_TOL_DEG) {
+            aimPrevError = 0;
+            return 0.0;
+        }
+
+
+        long now = System.nanoTime();
+        double dt = (aimPrevTime == 0) ? 0.02 : (now - aimPrevTime) / 1e9;
+        dt = Math.max(dt, 0.01);
+        double derivative = (error - aimPrevError) / dt;
+
+
+        double turn = AIM_KP * error + AIM_KD * derivative;
+        turn = clamp(turn, -AIM_MAX_TURN, AIM_MAX_TURN);
+
+
+        aimPrevError = error;
+        aimPrevTime = now;
+
+
+        return AIM_INVERT ? -turn : turn;
+    }
+
+
+    private boolean limelightAligned() {
+        LLResult r = limelight.getLatestResult();
+        if (!limelightHasValidTarget(r)) return false;
+        return Math.abs(r.getTx() - AIM_TX_OFFSET_DEG) <= AIM_TX_TOL_DEG;
+    }
+
+
+    private boolean limelightHasValidTarget(LLResult r) {
+        if (r == null || !r.isValid()) return false;
+        List<LLResultTypes.FiducialResult> tags = r.getFiducialResults();
+        if (tags.isEmpty()) return false;
+        return tags.get(0).getFiducialId() != 23;
+    }
+
+
+    protected double clamp(double value, double min, double max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+
+    private void configureShootingForTagAndCycle() {
+
+        if (detectedTag == 21) {
+
+            if (shootCycle == 0) {
+                // FIRST shooting position logic for tag 21
+                shootingSteps = new ShootStep[] {
+                        new ShootStep("aim", 1200),      // limelight gated
+                        new ShootStep("outtake", 1200),
+                        new ShootStep("prepare", 0),   // immediate
+                        new ShootStep("check", 2000),  // shooter stable gated
+                        new ShootStep("ldown", 700),
+                        new ShootStep("check", 750),
+                        new ShootStep("rdown", 700),
+                        new ShootStep("done", -1)
+                };
+            }
+            else if (shootCycle == 1) {
+                // SECOND shooting position logic for tag 21
+                shootingSteps = new ShootStep[] {
+                        new ShootStep("aim", 500),      // limelight gated
+                        new ShootStep("prepare", 0),   // immediate
+                        new ShootStep("check", 250),  // shooter stable gated
+                        new ShootStep("mup", 750),
+                        new ShootStep("check", 750),
+                        new ShootStep("ldown", 700),
+                        new ShootStep("check", 750),
+                        new ShootStep("rdown", 700),
+                        new ShootStep("done", -1)
+                };
+            }
+            else if (shootCycle == 2) {
+                // THIRD shooting position logic for tag 21
+                shootingSteps = new ShootStep[] {
+                        new ShootStep("aim", 500),      // limelight gated
+                        new ShootStep("prepare", 0),   // immediate
+                        new ShootStep("check", 250),  // shooter stable gated
+                        new ShootStep("mup", 750),
+                        new ShootStep("check", 750),
+                        new ShootStep("rdown", 700),
+                        new ShootStep("check", 750),
+                        new ShootStep("ldown", 700),
+                        new ShootStep("done", -1)
+                };
+            }
+        }
+        else if (detectedTag == 22) {
+
+            if (shootCycle == 0) {
+                // FIRST shooting position logic for tag 22
+                shootingSteps = new ShootStep[] {
+                        new ShootStep("aim", 250),      // limelight gated
+                        new ShootStep("prepare", 0),   // immediate
+                        new ShootStep("check", 750),  // shooter stable gated
+                        new ShootStep("mup", 750),
+                        new ShootStep("check", 750),
+                        new ShootStep("ldown", 700),
+                        new ShootStep("check", 750),
+                        new ShootStep("rdown", 700),
+                        new ShootStep("done", -1)
+                };
+            }
+            else if (shootCycle == 1) {
+                // SECOND shooting position logic for tag 22
+                shootingSteps = new ShootStep[] {
+                        new ShootStep("aim", 250),      // limelight gated
+                        new ShootStep("prepare", 0),   // immediate
+                        new ShootStep("check", 750),  // shooter stable gated
+                        new ShootStep("mup", 750),
+                        new ShootStep("check", 750),
+                        new ShootStep("ldown", 700),
+                        new ShootStep("check", 750),
+                        new ShootStep("rdown", 700),
+                        new ShootStep("done", -1)
+                };
+            }
+            else if (shootCycle == 2) {
+                // THIRD shooting position logic for tag 22
+                shootingSteps = new ShootStep[] {
+                        new ShootStep("aim", 250),      // limelight gated
+                        new ShootStep("prepare", 0),   // immediate
+                        new ShootStep("check", 750),  // shooter stable gated
+                        new ShootStep("mup", 750),
+                        new ShootStep("check", 750),
+                        new ShootStep("rdown", 700),
+                        new ShootStep("check", 750),
+                        new ShootStep("ldown", 700),
+                        new ShootStep("done", -1)
+                };
+            }
+        }
+        else if (detectedTag == 23) {
+            if (shootCycle == 0) {
+                // FIRST shooting position logic for tag 23
+                shootingSteps = new ShootStep[] {
+                        new ShootStep("aim", 1500),      // limelight gated
+                        new ShootStep("prepare", 0),   // immediate
+                        new ShootStep("check", 250),  // shooter stable gated
+                        new ShootStep("mup", 750),
+                        new ShootStep("check", 500),
+                        new ShootStep("rdown", 700),
+                        new ShootStep("check", 500),
+                        new ShootStep("ldown", 700),
+                        new ShootStep("done", -1)
+                };
+            }
+            else if (shootCycle == 1) {
+                // SECOND shooting position logic for tag 23
+                shootingSteps = new ShootStep[] {
+                        new ShootStep("aim", 1500),      // limelight gated
+                        new ShootStep("prepare", 0),   // immediate
+                        new ShootStep("check", 250),  // shooter stable gated
+                        new ShootStep("mup", 750),
+                        new ShootStep("check", 500),
+                        new ShootStep("rdown", 700),
+                        new ShootStep("check", 500),
+                        new ShootStep("ldown", 700),
+                        new ShootStep("done", -1)
+                };
+            }
+            else if (shootCycle == 2) {
+                shootingSteps = new ShootStep[] {
+                        new ShootStep("aim", 1500),      // limelight gated
+                        new ShootStep("prepare", 0),   // immediate
+                        new ShootStep("check", 250),  // shooter stable gated
+                        new ShootStep("mup", 750),
+                        new ShootStep("check", 500),
+                        new ShootStep("ldown", 700),
+                        new ShootStep("check", 500),
+                        new ShootStep("rdown", 700),
+                        new ShootStep("done", -1)
+                };
+            }
+        }
+    }
+
+
+
 }
 
-//1
