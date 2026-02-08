@@ -194,9 +194,9 @@ public abstract class PineapplesBOT extends OpMode {
     protected static final Pose[] poseArrayRed = {
 
             new Pose(6.86, 135.11, Math.toRadians(0)), // 0 Blue Start Pose
-            new Pose(17, 17, Math.toRadians(225)),// 3 RED Pickup Pose
-            new Pose( 135, 60, Math.toRadians(20)), // RED GATE POSE
-            new Pose (33, 27, Math.toRadians(225)), // RED LIFTING
+            new Pose(12, 14, Math.toRadians(225)),// 3 RED Pickup Pose
+            new Pose( 125.6, 67.8, Math.toRadians(-180)), // RED GATE POSE
+            new Pose (29.7, 29.7, Math.toRadians(225)), // RED LIFTING
 
 
     };
@@ -213,7 +213,7 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     static final double[] SHOOT_SPEEDS = {
-            1500, 1360, 1300
+            1500, 1360, 1300, 1540
     };
     // add 1530
 
@@ -346,15 +346,15 @@ public abstract class PineapplesBOT extends OpMode {
                     new Pose(48, 96, Math.toRadians(315)),
                    //new Pose(60, 84, Math.toRadians(305))
             };
-            AIM_TX_OFFSET_DEG = 3.0;
+            AIM_TX_OFFSET_DEG = 2.0;
         } else {
             SHOOT_POINTS = new Pose[] {
                     new Pose(72, 72, Math.toRadians(225)),
                     new Pose(84, 84 ,Math.toRadians(225)),
                     new Pose(96, 96, Math.toRadians(225)),
-                    //new Pose(60, 84, Math.toRadians(215))
+                    new Pose(60, 84, Math.toRadians(215))
             };
-            AIM_TX_OFFSET_DEG = -3.0;
+            AIM_TX_OFFSET_DEG = -2.0;
         }
     }
 
@@ -701,7 +701,7 @@ public abstract class PineapplesBOT extends OpMode {
 
             PathChain shootPath = follower.pathBuilder()
                     .addPath(new Path(new BezierLine(follower::getPose, target)))
-                    .setVelocityConstraint(5)
+                    .setVelocityConstraint(10)
                     .setTranslationalConstraint(1.0)
                     .setHeadingConstraint(.01)
 
@@ -840,7 +840,7 @@ public abstract class PineapplesBOT extends OpMode {
 
 
 
-            if (shootingcurstep <= 3) {
+            if (shootingcurstep < 0) {
                 Common.advancewheel.setPower(0);
             } else {
                 Common.advancewheel.setPower(1);
@@ -983,14 +983,17 @@ public abstract class PineapplesBOT extends OpMode {
                 // || (System.currentTimeMillis() - slowtimer > 0 && slow)
                 if (gamepad1.left_trigger > 0.8) {
                     intakingspeed = -500;
+                    Common.radvance.setPosition(R_DOWN);
+                    Common.ladvance.setPosition(L_DOWN);
                 } else {
                     intakingspeed = 1300;
+                    Common.radvance.setPosition(RIGHT_BASE_POSITION);
+                    Common.ladvance.setPosition(LEFT_BASE_POSITION);
                 }
 
-
-                Common.radvance.setPosition(RIGHT_BASE_POSITION);
                 Common.madvance.setPosition(MIDDLE_BASE_POSITION);
-                Common.ladvance.setPosition(LEFT_BASE_POSITION);
+
+
 
 
             }
@@ -1004,7 +1007,9 @@ public abstract class PineapplesBOT extends OpMode {
             aimPrevTime = 0;
 
 
-            Common.advancewheel.setPower(-1);
+            if (Common.lifting.getCurrentPosition() <= 350) {
+                Common.advancewheel.setPower(-1);
+            }
 
 
         }
@@ -1043,11 +1048,7 @@ public abstract class PineapplesBOT extends OpMode {
 
 
 
-        if (Common.lifting.getCurrentPosition() >= 350) {
-            intakingspeed = 0;
-            shootingspeed = 0;
-            Common.advancewheel.setPower(0);
-        }
+
 
 
         if (shooterEnabled) {
@@ -1060,6 +1061,14 @@ public abstract class PineapplesBOT extends OpMode {
         }
 
 
+        if (Common.lifting.getCurrentPosition() >= 350) {
+            intakingspeed = 0;
+            shootingspeed = 0;
+            Common.advancewheel.setPower(0);
+            follower.setTeleOpDrive(0, 0, 0, false);
+            follower.startTeleopDrive();
+
+        }
         //motors
         ((DcMotorEx) Common.intaking).setVelocity(intakingspeed);
         ((DcMotorEx) Common.shoot).setVelocity(shootingspeed);

@@ -66,8 +66,8 @@ public class PineapplesAutoBlue extends OpMode {
             new Pose(33.9, 84.0, Math.toRadians(180 - (-90))),     // collect 2
             new Pose(48.0, 96.0, Math.toRadians(180 - 225)),       // shoot 2
             new Pose(55.7, 61.4, Math.toRadians(180 - (-90))),     // intermediate
-            new Pose(35.9, 49.6, Math.toRadians(180 - (-90))),     // align 3
-            new Pose(35.9, 37.4, Math.toRadians(180 - (-90))),     // collect 3
+            new Pose(36.9, 49.6, Math.toRadians(180 - (-90))),     // align 3
+            new Pose(36.9, 37.4, Math.toRadians(180 - (-90))),     // collect 3
             new Pose(58.5, 105.0, Math.toRadians(180 - (-150.1)))  // shoot 3
     };
 
@@ -364,7 +364,7 @@ public class PineapplesAutoBlue extends OpMode {
 
                 // Wait BEFORE opening gate
                 if (!gateOpened && outtakeElapsed >= 200) { // 👈 motor spin-up time
-                    Common.madvance.setPosition(M_UP);
+                    Common.radvance.setPosition(R_UP);
                     gateOpened = true;
                 }
 
@@ -576,20 +576,21 @@ public class PineapplesAutoBlue extends OpMode {
             if (shootCycle == 0) {
                 // FIRST shooting position logic for tag 21
                 shootingSteps = new ShootStep[] {
-                        new ShootStep("aim", 1200),      // limelight gated
-                        new ShootStep("outtake", 1200),
+                        new ShootStep("aim", 0),      // limelight gated
                         new ShootStep("prepare", 0),   // immediate
-                        new ShootStep("check", 2000),  // shooter stable gated
+                        new ShootStep("check", 1000),  // shooter stable gated
+                        new ShootStep("mup", 500),
+                        new ShootStep("check", 750),
                         new ShootStep("ldown", 700),
                         new ShootStep("check", 750),
-                        new ShootStep("rdown", 700),
+                        new ShootStep("outtake", 700),
                         new ShootStep("done", -1)
                 };
             }
             else if (shootCycle == 1) {
                 // SECOND shooting position logic for tag 21
                 shootingSteps = new ShootStep[] {
-                        new ShootStep("aim", 500),      // limelight gated
+                        new ShootStep("aim", 0),      // limelight gated
                         new ShootStep("prepare", 0),   // immediate
                         new ShootStep("check", 250),  // shooter stable gated
                         new ShootStep("mup", 750),
@@ -603,7 +604,7 @@ public class PineapplesAutoBlue extends OpMode {
             else if (shootCycle == 2) {
                 // THIRD shooting position logic for tag 21
                 shootingSteps = new ShootStep[] {
-                        new ShootStep("aim", 500),      // limelight gated
+                        new ShootStep("aim", 0),      // limelight gated
                         new ShootStep("prepare", 0),   // immediate
                         new ShootStep("check", 250),  // shooter stable gated
                         new ShootStep("mup", 750),
@@ -620,7 +621,7 @@ public class PineapplesAutoBlue extends OpMode {
             if (shootCycle == 0) {
                 // FIRST shooting position logic for tag 22
                 shootingSteps = new ShootStep[] {
-                        new ShootStep("aim", 250),      // limelight gated
+                        new ShootStep("aim", 0,      // limelight gated
                         new ShootStep("prepare", 0),   // immediate
                         new ShootStep("check", 750),  // shooter stable gated
                         new ShootStep("mup", 750),
@@ -628,13 +629,13 @@ public class PineapplesAutoBlue extends OpMode {
                         new ShootStep("ldown", 700),
                         new ShootStep("check", 750),
                         new ShootStep("rdown", 700),
-                        new ShootStep("done", -1)
+                        new ShootStep("done", -1)=
                 };
             }
             else if (shootCycle == 1) {
                 // SECOND shooting position logic for tag 22
                 shootingSteps = new ShootStep[] {
-                        new ShootStep("aim", 250),      // limelight gated
+                        new ShootStep("aim", 0),      // limelight gated
                         new ShootStep("prepare", 0),   // immediate
                         new ShootStep("check", 750),  // shooter stable gated
                         new ShootStep("mup", 750),
