@@ -208,12 +208,13 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     // ---- Fixed shooting points ----
-    protected static final Pose[] SHOOT_POINTS = {
+    protected static final Pose[] RED_SHOOT_POINTS = {
             new Pose(72, 72, Math.toRadians(225)),
             new Pose(84, 84 ,Math.toRadians(225)),
             new Pose(96, 96, Math.toRadians(225)),
             new Pose(60, 84, Math.toRadians(215))
     };
+
 
 
     static final double[] SHOOT_SPEEDS = {
@@ -222,13 +223,14 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     protected Pose[] poseArray;
+    protected Pose[] SHOOT_POINTS;
 
 
     protected enum AutoTarget {
         NONE(-1),
-        PICKUP(2),
-        GATE(3),
-        LIFTING(4),
+        PICKUP(1),
+        GATE(2),
+        LIFTING(3),
         shooting1(0);
 
 
@@ -252,10 +254,9 @@ public abstract class PineapplesBOT extends OpMode {
     double DRIVE_TICKS_PER_SEC_MAX = 2800.0;
 
 
-    double MIDDLE_BASE_POSITION = 0.69;
-    double RIGHT_BASE_POSITION = 0.69;
-    double LEFT_BASE_POSITION = 0.69; // 70
+    double BASE_POSITION = 0.69; // 70
 
+    double AIM_TX_OFFSET_DEG;
 
     boolean slow = false;
     double slowtimer = 500;
@@ -265,15 +266,49 @@ public abstract class PineapplesBOT extends OpMode {
     double qspeed = 0;
 
 
+
+    protected Pose getGoalPose() {
+        return (getAlliance()==Alliance.RED)
+                ? new Pose(128,128,0)
+                : mirrorBlueToRed(new Pose(128,128,0));
+    }
+    private static final double FIELD_SIZE_IN = 140.0;
+    protected void rightGateDown() {
+        if (getAlliance() == Alliance.RED)
+            Common.radvance.setPosition(R_DOWN);
+        else
+            Common.ladvance.setPosition(L_DOWN);
+    }
+
+    protected void leftGateDown() {
+        if (getAlliance() == Alliance.RED)
+            Common.ladvance.setPosition(L_DOWN);
+        else
+            Common.radvance.setPosition(R_DOWN);
+    }
+    protected Pose mirrorBlueToRed(Pose bluePose) {
+        double x = FIELD_SIZE_IN - bluePose.getX();
+        double y = bluePose.getY();
+        double h = AngleUnit.normalizeRadians(Math.PI - bluePose.getHeading());
+        return new Pose(x, y, h);
+    }
+
     @Override
     public void init() {
+        AIM_TX_OFFSET_DEG = (getAlliance()==Alliance.RED) ? -3.0 : 3.0;
+        Alliance alliance = getAlliance();
         // Build alliance-specific pose array
-        poseArray = new Pose[poseArrayBlue.length];
+        SHOOT_POINTS = new Pose[RED_SHOOT_POINTS.length];
+        for (int i = 0; i < RED_SHOOT_POINTS.length; i++) {
+            SHOOT_POINTS[i] = (getAlliance()==Alliance.BLUE)
+                    ? RED_SHOOT_POINTS[i]
+                    : mirrorBlueToRed(RED_SHOOT_POINTS[i]);
+        }        poseArray = new Pose[poseArrayBlue.length];
         for (int i = 0; i < poseArrayBlue.length; i++) {
-            poseArray[i] = poseArrayBlue[i];
+            poseArray[i] = (alliance == Alliance.BLUE)
+                    ? poseArrayBlue[i]
+                    : mirrorBlueToRed(poseArrayBlue[i]);
         }
-
-
         Common.configRobot(hardwareMap, false);
 
 
@@ -309,9 +344,9 @@ public abstract class PineapplesBOT extends OpMode {
 
 
 
-        Common.radvance.setPosition(RIGHT_BASE_POSITION);
-        Common.madvance.setPosition(MIDDLE_BASE_POSITION);
-        Common.ladvance.setPosition(LEFT_BASE_POSITION);
+        Common.radvance.setPosition(BASE_POSITION);
+        Common.madvance.setPosition(BASE_POSITION);
+        Common.ladvance.setPosition(BASE_POSITION);
 
 
         targetPosition = 0;
@@ -393,7 +428,6 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     // LIMELIGHT CODE:
-    static double AIM_TX_OFFSET_DEG = -3.0;
     static final double AIM_TX_TOL_DEG = 0.5;
 
 
@@ -837,6 +871,10 @@ public abstract class PineapplesBOT extends OpMode {
                     follower.startTeleopDrive();
                     shootingspeed = qspeed;
                     //Common.madvance.setPosition(M_DOWN);
+
+                    if (Math.abs(shootingspeed - 1300) < 5){
+                        updatePoseFromLL();
+                    }
                     Common.radvance.setPosition(R_UP);
                     Common.ladvance.setPosition(L_UP);
                     //Common.madvance.setPosition(M_DOWN);
@@ -877,13 +915,13 @@ public abstract class PineapplesBOT extends OpMode {
 
 
                 case "rdown":
-                    Common.radvance.setPosition(R_DOWN);
+                    rightGateDown();
                     if (elapsed >= step.durationMs) nextShootStep();
                     break;
 
 
                 case "ldown":
-                    Common.ladvance.setPosition(L_DOWN);
+                    leftGateDown();
                     if (elapsed >= step.durationMs) nextShootStep();
                     break;
 
@@ -930,9 +968,9 @@ public abstract class PineapplesBOT extends OpMode {
                 }
 
 
-                Common.radvance.setPosition(RIGHT_BASE_POSITION);
-                Common.madvance.setPosition(MIDDLE_BASE_POSITION);
-                Common.ladvance.setPosition(LEFT_BASE_POSITION);
+                Common.radvance.setPosition(BASE_POSITION);
+                Common.madvance.setPosition(BASE_POSITION);
+                Common.ladvance.setPosition(BASE_POSITION);
 
 
             }
@@ -1128,10 +1166,13 @@ public abstract class PineapplesBOT extends OpMode {
 
 
 
-    protected static double distanceTOGOAL(double x, double y) {
-        return Math.sqrt(Math.pow(128 - x, 2) + Math.pow(128 - y, 2));
+    protected double distanceTOGOAL(double x, double y) {
+        Pose goal = getGoalPose();
+        return Math.sqrt(
+                Math.pow(goal.getX() - x, 2) +
+                        Math.pow(goal.getY() - y, 2)
+        );
     }
-
 
     private boolean limelightAligned() {
         LLResult r = limelight.getLatestResult();
