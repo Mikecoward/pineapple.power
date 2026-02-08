@@ -223,9 +223,9 @@ public abstract class PineapplesBOT extends OpMode {
 
     protected enum AutoTarget {
         NONE(-1),
-        PICKUP(2),
-        GATE(3),
-        LIFTING(4),
+        PICKUP(1),
+        GATE(2),
+        LIFTING(3),
         shooting1(0);
 
 
@@ -249,7 +249,7 @@ public abstract class PineapplesBOT extends OpMode {
     double DRIVE_TICKS_PER_SEC_MAX = 2800.0;
 
 
-    double MIDDLE_BASE_POSITION = 0.69;
+    double MIDDLE_BASE_POSITION = 0.665;
     double RIGHT_BASE_POSITION = 0.71;
     double LEFT_BASE_POSITION = 0.69; // 70
 
@@ -508,7 +508,7 @@ public abstract class PineapplesBOT extends OpMode {
 
 
 
-    static final double M_UP = 0.785;
+    static final double M_UP = 0.775;
     static final double M_DOWN = 0.720;
 
 
@@ -542,11 +542,11 @@ public abstract class PineapplesBOT extends OpMode {
     ShootStep[] shootingSteps = {
             new ShootStep("aim", 600),        // limelight gated
             new ShootStep("prepare", 0),     // immediate
-            new ShootStep("increase",2),
+            //new ShootStep("increase",2),
             new ShootStep("check", 250),
-            new ShootStep("mup", 400),
-            new ShootStep("decrease", 2),
-            new ShootStep("check", 750),       // shooter stable gated
+            new ShootStep("mup", 0),
+            //new ShootStep("decrease", 2),
+            new ShootStep("check", 1100),       // shooter stable gated
             new ShootStep("rdown", 500),
             new ShootStep("check", 750),       // shooter stable gated
             new ShootStep("ldown", 500),
@@ -673,7 +673,7 @@ public abstract class PineapplesBOT extends OpMode {
         if (gamepad1.dpad_up && !automatedDrive) {
 
 
-            shootingspeed = 1300;
+            shootingspeed = 1500;
             shooterEnabled = true;
 
 
@@ -681,35 +681,19 @@ public abstract class PineapplesBOT extends OpMode {
             Pose target = SHOOT_POINTS[shootIndex];
 
             double a = distShootPos(follower.getPose().getX(), follower.getPose().getY(), target.getX(), target.getY());
-            if (a > 70) {
-                shootingSteps = new ShootStep[] {
-                        new ShootStep("increase", 5),
-                        new ShootStep("aim", 600),        // limelight gated
-                        new ShootStep("prepare", 0),     // immediate
-                        new ShootStep("check", 600),
-                        new ShootStep("mup", 400),
-                        new ShootStep("decrease", 5),
-                        new ShootStep("check", 750),       // shooter stable gated
-                        new ShootStep("rdown", 500),
-                        new ShootStep("check", 750),       // shooter stable gated
-                        new ShootStep("ldown", 500),
-                        new ShootStep("done", -1)
-                };
-            } else {
-                shootingSteps = new ShootStep[] {
-                        new ShootStep("increase", 5),
-                        new ShootStep("aim", 600),        // limelight gated
-                        new ShootStep("prepare", 0),     // immediate
-                        new ShootStep("check", 1000),
-                        new ShootStep("mup", 400),
-                        new ShootStep("decrease", 2),
-                        new ShootStep("check", 750),       // shooter stable gated
-                        new ShootStep("rdown", 500),
-                        new ShootStep("check", 750),       // shooter stable gated
-                        new ShootStep("ldown", 500),
-                        new ShootStep("done", -1)
-                };
-            }
+            shootingSteps = new ShootStep[]{
+                    //new ShootStep("increase", 5),
+                    new ShootStep("aim", 1500),      // limelight gated
+                    new ShootStep("prepare", 0),   // immediate
+                    new ShootStep("check", 250),  // shooter stable gated
+                    new ShootStep("mup", 750),
+                    new ShootStep("check", 750),
+                    new ShootStep("rdown", 700),
+                    new ShootStep("check", 750),
+                    new ShootStep("ldown", 700),
+                    new ShootStep("done", -1)
+            };
+
 
 
             qspeed = SHOOT_SPEEDS[shootIndex];
@@ -855,9 +839,12 @@ public abstract class PineapplesBOT extends OpMode {
 
 
 
-            Common.advancewheel.setPower(1);
 
-
+            if (shootingcurstep <= 3) {
+                Common.advancewheel.setPower(0);
+            } else {
+                Common.advancewheel.setPower(1);
+            }
             advanced = false;
 
 
@@ -987,7 +974,7 @@ public abstract class PineapplesBOT extends OpMode {
         } else if ("stagnant".equals(curstep)) {
             if (gamepad1.left_bumper) {
                 Common.radvance.setPosition(.79);
-                Common.madvance.setPosition(.61);
+                //Common.madvance.setPosition(.61);
                 Common.ladvance.setPosition(.79);
 
 
@@ -1011,7 +998,7 @@ public abstract class PineapplesBOT extends OpMode {
 
             shootingcurstep = 0;
             stepStartTime = 0;
-            shootingspeed = 0;
+            shootingspeed = 1475;
             shooterStableSince = 0;
             aimPrevError = 0;
             aimPrevTime = 0;
@@ -1069,7 +1056,7 @@ public abstract class PineapplesBOT extends OpMode {
 
 
         } else {
-            shootingspeed = 0;
+            shootingspeed = 1500;
         }
 
 
