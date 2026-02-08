@@ -62,6 +62,12 @@ public class PineapplesAutoBlue extends OpMode {
             new Pose(34.4, 125.6, Math.toRadians(180 - 36.03)),   // start
             new Pose(59.1, 109.7, Math.toRadians(180 - (-56.38))), // check limelight
             new Pose(48.0, 96.0, Math.toRadians(180 - 225)),       // shoot 1
+
+            // 99 , 98  -45.4 start first intake
+            // 115 , 82 -45.4 end first intake
+            // 89.8 , 58.2 -88.3    intermedite
+            // 101.2 , 48,9 -47.6 3rd align
+            // 115.0, 33.9 -47.6 3rd intake
             new Pose(33.9, 110.0, Math.toRadians(180 - (-90))),    // align 2
             new Pose(33.9, 84.0, Math.toRadians(180 - (-90))),     // collect 2
             new Pose(48.0, 96.0, Math.toRadians(180 - 225)),       // shoot 2
@@ -621,7 +627,7 @@ public class PineapplesAutoBlue extends OpMode {
             if (shootCycle == 0) {
                 // FIRST shooting position logic for tag 22
                 shootingSteps = new ShootStep[] {
-                        new ShootStep("aim", 0,      // limelight gated
+                        new ShootStep("aim", 0),      // limelight gated
                         new ShootStep("prepare", 0),   // immediate
                         new ShootStep("check", 750),  // shooter stable gated
                         new ShootStep("mup", 750),
@@ -629,7 +635,7 @@ public class PineapplesAutoBlue extends OpMode {
                         new ShootStep("ldown", 700),
                         new ShootStep("check", 750),
                         new ShootStep("rdown", 700),
-                        new ShootStep("done", -1)=
+                        new ShootStep("done", -1)
                 };
             }
             else if (shootCycle == 1) {
