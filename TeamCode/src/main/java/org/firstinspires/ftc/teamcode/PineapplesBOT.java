@@ -184,23 +184,18 @@ public abstract class PineapplesBOT extends OpMode {
     protected AutoTarget currentAutoTarget = AutoTarget.NONE;
 
 
-    protected int numPaths = poseArrayBlue.length;
+    protected int numPaths = poseArrayRed.length;
     protected Supplier<PathChain>[] pathArray;
 
 
     // BLUE “source of truth”
     //80 118 - gate
     //29.8 - 104 135
-    protected static final Pose[] poseArrayBlue = {
+    protected static final Pose[] poseArrayRed = {
+
             new Pose(6.86, 135.11, Math.toRadians(0)), // 0 Blue Start Pose
-
-
             new Pose(17, 17, Math.toRadians(225)),// 3 RED Pickup Pose
-
-
             new Pose( 135, 60, Math.toRadians(20)), // RED GATE POSE
-
-
             new Pose (33, 27, Math.toRadians(225)), // RED LIFTING
 
 
@@ -208,7 +203,8 @@ public abstract class PineapplesBOT extends OpMode {
 
 
     // ---- Fixed shooting points ----
-    protected static final Pose[] SHOOT_POINTS = {
+
+    protected static Pose[] SHOOT_POINTS = {
             new Pose(72, 72, Math.toRadians(225)),
             new Pose(84, 84 ,Math.toRadians(225)),
             new Pose(96, 96, Math.toRadians(225)),
@@ -268,9 +264,29 @@ public abstract class PineapplesBOT extends OpMode {
     @Override
     public void init() {
         // Build alliance-specific pose array
-        poseArray = new Pose[poseArrayBlue.length];
-        for (int i = 0; i < poseArrayBlue.length; i++) {
-            poseArray[i] = poseArrayBlue[i];
+        poseArray = new Pose[poseArrayRed.length];
+
+        poseArray = new Pose[poseArrayRed.length];
+
+        boolean isBlue = getAlliance() == Alliance.BLUE;
+
+        for (int i = 0; i < poseArrayRed.length; i++) {
+            Pose p = poseArrayRed[i];
+
+            double x = p.getX();
+            double y = p.getY();
+            double heading = p.getHeading();
+
+            if (isBlue) {
+                x = 144.0 - x;                     // mirror across field
+                heading += Math.toRadians(90);    // rotate heading
+            }
+
+            poseArray[i] = new Pose(
+                    x,
+                    y,
+                    normalizeAngle(heading)
+            );
         }
 
 
@@ -320,7 +336,21 @@ public abstract class PineapplesBOT extends OpMode {
 
 
 
-
+        if (getAlliance() == Alliance.BLUE) {
+            SHOOT_POINTS = new Pose[] {
+                    new Pose(72, 72, Math.toRadians(315)),
+                    new Pose(84, 84 ,Math.toRadians(315)),
+                    new Pose(96, 96, Math.toRadians(315)),
+                    new Pose(60, 84, Math.toRadians(305))
+            };
+        } else {
+            SHOOT_POINTS = new Pose[] {
+                    new Pose(72, 72, Math.toRadians(225)),
+                    new Pose(84, 84 ,Math.toRadians(225)),
+                    new Pose(96, 96, Math.toRadians(225)),
+                    new Pose(60, 84, Math.toRadians(215))
+            };
+        }
     }
 
 
@@ -616,7 +646,10 @@ public abstract class PineapplesBOT extends OpMode {
             double mult = slowMode ? slowModeMultiplier : 1.0;
             mult *= driveSpeedCap; // Apply speed cap to all movements
 
-
+            if (getAlliance() == Alliance.BLUE) {
+                cmdX = -cmdX;
+                cmdY = -cmdY;
+            }
 
 
             if (targetY == 0 && targetX == 0 && targetTurn == 0) {
@@ -1185,11 +1218,20 @@ public abstract class PineapplesBOT extends OpMode {
 
 
         // Limelight primary target = index 0
-        return tags.get(0).getFiducialId() != 23;
+        if (getAlliance() == Alliance.BLUE) {
+            return tags.get(0).getFiducialId() != 23 && tags.get(0).getFiducialId() != 22 && tags.get(0).getFiducialId() != 21 && tags.get(0).getFiducialId() != 20;
+        } else {
+            return tags.get(0).getFiducialId() != 23 && tags.get(0).getFiducialId() != 22 && tags.get(0).getFiducialId() != 21 && tags.get(0).getFiducialId() != 24;
+        }
     }
 
 
 
+    protected double normalizeAngle(double radians) {
+        while (radians > Math.PI) radians -= 2 * Math.PI;
+        while (radians < -Math.PI) radians += 2 * Math.PI;
+        return radians;
+    }
 
 
 
